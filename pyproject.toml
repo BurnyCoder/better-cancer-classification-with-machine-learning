@@ -1,0 +1,17 @@
+[project]
+name = "pcam-hc"
+version = "0.1.0"
+description = "Pre-registered hill-climbing of the Midnight-12k pathology foundation model on PatchCamelyon"
+readme = "README.md"
+authors = [
+    { name = "BurnyCoder", email = "happymancz@email.cz" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+pcam-hc = "pcam_hc:main"
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"

@@ -1,0 +1,32 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local config and secrets
+.env
+
+# Large local artifacts (data, embeddings, checkpoints live on D:\AI)
+data/
+cache/
+checkpoints/
+*.h5
+*.h5.gz
+*.npy
+*.safetensors
+*.pt
+
+# Logs (kept locally; summaries go into reports/)
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

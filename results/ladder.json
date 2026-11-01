@@ -217,7 +217,8 @@
         ]
       },
       "head": "linear",
-      "clean_threshold": 0.9
+      "clean_threshold": 0.9,
+      "clean_source": "S3b_oof_label_cleaning"
     },
     "S5_lora": {
       "representation": {
@@ -238,7 +239,8 @@
         "lr": 0.0001,
         "rank": 16
       },
-      "base_arm": "S5_lora"
+      "base_arm": "S5_lora",
+      "clean_source": "S3b_oof_label_cleaning"
     }
   },
   "hibou_incumbent": "S5_lora"

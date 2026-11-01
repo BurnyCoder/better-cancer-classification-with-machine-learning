@@ -58,10 +58,11 @@
   </div>
   <div class="tiles" id="tiles"></div>
 
-  <h2>The ladder: each step's candidates vs. the incumbent (train OOF)</h2>
-  <p class="note">Dots are seed-averaged out-of-fold balanced accuracy; whiskers are 95% slide-bootstrap CIs. A step is
-    adopted only if its best candidate beats the incumbent (Holm-corrected per-slide sign-flip test) and passes the
-    validation no-harm gate.</p>
+  <h2>Improvement ladder: every trained classifier vs. the original Hibou-L</h2>
+  <p class="note">Paired difference in balanced accuracy on the same patches (train out-of-fold and validation), with 95%
+    slide-bootstrap CIs. Hibou-L stays frozen in S1–S3b (only the classifier is trained); LoRA (S5) also trains adapters
+    inside Hibou-L. A step is adopted only if its best candidate passes the Holm-corrected sign-flip test and the
+    validation no-harm gate. Per-candidate p-values here are descriptive.</p>
   <div id="ladder" class="chart"></div>
 
   <h2>No-training baselines: published eva leaderboard</h2>
@@ -112,21 +113,25 @@ fetch("data/results.json").then(r => r.json()).then(d => {
     (d.final.confirmatory.H1.delta_ba >= 0 ? "+" : "") + (100 * d.final.confirmatory.H1.delta_ba).toFixed(2) + " pt",
     "H1: final vs. baseline on sealed test (BA)");
 
-  // Ladder chart
-  const rows = [], adoptedRows = [];
-  for (const st of d.steps) {
-    const inc = d.arms[st.incumbent];
-    if (inc && inc.oof) rows.push({label: `${st.step} · incumbent`, ...inc.oof});
-    for (const c of st.candidates) {
-      const a = d.arms[c]; if (!a || !a.oof) continue;
-      const r = {label: `${st.step} · ${c}`, ...a.oof};
-      (st.adopted && c === st.winner ? adoptedRows : rows).push(r);
-    }
-  }
-  if (rows.length) Plotly.newPlot("ladder", [dotTrace(rows, css("--muted"), "candidate / incumbent"),
-    dotTrace(adoptedRows, css("--s1"), "adopted")], layoutBase(Math.max(320, 30 * (rows.length + adoptedRows.length) + 90)),
-    {displayModeBar: false, responsive: true});
-  else document.getElementById("ladder").append(el("p", "Ladder steps will appear here as they finish."));
+  // Ladder chart: paired difference of every trained classifier from the original Hibou-L probe
+  const lr = d.ladder_rows || [];
+  if (lr.length) {
+    const labels = lr.map(r => `${r.step}: ${r.arm}`);
+    const tr = (name, color, key, lo, hi, dy) => ({type: "scatter", mode: "markers", name,
+      x: lr.map(r => 100 * r[key]), y: labels,
+      marker: {size: 10, color, line: {color: css("--surface"), width: 2}},
+      error_x: {type: "data", symmetric: false, array: lr.map(r => 100 * (r[hi] - r[key])),
+                arrayminus: lr.map(r => 100 * (r[key] - r[lo])), color, thickness: 2, width: 0},
+      customdata: lr.map(r => [r.oof_ba, r.p, r.valid_ba, r.description]),
+      hovertemplate: "<b>%{x:+.2f} pt</b> vs original<br>%{y}<br>OOF BA %{customdata[0]:.4f} · p %{customdata[1]:.3g}" +
+                     "<br>valid BA %{customdata[2]:.4f}<br>%{customdata[3]}<extra>" + name + "</extra>"});
+    const lay = layoutBase(Math.max(320, 46 * lr.length + 110));
+    lay.xaxis.title = "Δ balanced accuracy vs. original Hibou-L (percentage points)";
+    lay.shapes = [{type: "line", x0: 0, x1: 0, yref: "paper", y0: 0, y1: 1, line: {color: css("--ink-2"), width: 1}}];
+    Plotly.newPlot("ladder", [tr("train OOF (paired)", css("--s1"), "delta", "lo", "hi"),
+                              tr("PCam valid (paired)", css("--s2"), "valid_delta", "valid_lo", "valid_hi")],
+                   lay, {displayModeBar: false, responsive: true});
+  } else document.getElementById("ladder").append(el("p", "Ladder classifiers will appear here as they are trained."));
 
   // Published baselines
   if (d.published && d.published.length) {

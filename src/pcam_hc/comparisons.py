@@ -19,6 +19,7 @@ from pcam_hc.stats import paired_comparison
 
 log = logging.getLogger(__name__)
 BASELINE = "S0_hibou_l_cls_linear"
+H4 = "H4_aug_control"
 LADDER_PREFIXES = ("S1_", "S2_", "S3_", "S3b_", "S5_", "S5b_")
 
 
@@ -26,16 +27,17 @@ def ladder_arms() -> list[str]:
     return sorted(p.stem for p in (PATHS.results / "arms").glob("*.json") if p.stem.startswith(LADDER_PREFIXES))
 
 
-def compare_with_baseline(arm: str, n_boot: int = 10_000) -> dict:
-    """Paired (arm - S0) comparison; cached on disk."""
+def compare_with_baseline(arm: str, n_boot: int = 10_000, ref: str = BASELINE) -> dict:
+    """Paired (arm - ref) comparison, ref = S0 by default; cached on disk. A fold-0 `ref` other than S0
+    (the H4 control) must hold predictions for the same fold-0 patches as `arm`."""
     out_dir = PATHS.results / "comparisons"
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{arm}_vs_baseline.json"
+    path = out_dir / (f"{arm}_vs_baseline.json" if ref == BASELINE else f"{arm}_vs_{ref}.json")
     if path.exists():
         return json.loads(path.read_text())
     ctx = ex.Context()
     rec = json.loads((PATHS.results / "arms" / f"{arm}.json").read_text())
-    a, b = ex.load_preds(BASELINE), ex.load_preds(arm)
+    a, b = ex.load_preds(ref), ex.load_preds(arm)
     base_oof = ex.seed_average(a["oof"])
     subset = rec.get("oof_subset")
     if subset is None:  # full-train OOF
@@ -47,9 +49,14 @@ def compare_with_baseline(arm: str, n_boot: int = 10_000) -> dict:
         idx = make_subset(ctx.folds, ctx.y_train, SUBSET_SIZE, seed=0)
         ref_name = "S3_no_tta_train64k" if arm != "S3_no_tta_train64k" else BASELINE
         ref_oof = ex.seed_average(ex.load_preds(ref_name)["oof"]) if ref_name != BASELINE else base_oof[idx]
-    else:  # fold0 / fold0_minus_ckpt (LoRA arms)
+    else:  # fold0 / fold0_minus_ckpt (LoRA arms and the H4 control)
         idx = b.get("fold0_idx", b.get("select_idx"))
-        ref_name, ref_oof = BASELINE, base_oof[idx]
+        if ref == BASELINE:
+            ref_oof = base_oof[idx]
+        else:  # both arms scored the same fold-0 patches
+            assert np.array_equal(a["fold0_idx"], idx), f"{ref} and {arm} cover different patches"
+            ref_oof = base_oof
+        ref_name = ref
     cmp = {"arm": arm, "reference_oof": ref_name, "oof_patches": int(len(idx)),
            "oof": paired_comparison(ctx.y_train[idx], ref_oof, ex.seed_average(b["oof"]), ctx.slides_train[idx],
                                     n_boot=n_boot, n_flips=n_boot),
@@ -62,4 +69,8 @@ def compare_with_baseline(arm: str, n_boot: int = 10_000) -> dict:
 
 
 def all_comparisons() -> dict:
-    return {arm: compare_with_baseline(arm) for arm in ladder_arms()}
+    out = {arm: compare_with_baseline(arm) for arm in ladder_arms()}
+    if (PATHS.results / "arms" / f"{H4}.json").exists():  # H4: frozen head with LoRA's images and augmentation
+        out[H4] = compare_with_baseline(H4)
+        out[f"S5_lora_vs_{H4}"] = compare_with_baseline("S5_lora", ref=H4)
+    return out

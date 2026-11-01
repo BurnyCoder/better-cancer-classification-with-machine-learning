@@ -1,0 +1,8 @@
+{
+  "lora_train_candidates": 210622,
+  "dropped_by_used_mask": 7131,
+  "dropped_by_nested_mask": 5412,
+  "dropped_by_both": 4928,
+  "jaccard_dropped": 0.6471437951411687,
+  "patches_trained_differently": 2687
+}

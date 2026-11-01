@@ -1,0 +1,31 @@
+{
+  "groups": {
+    "LoRA fixes an error of the original": 468,
+    "LoRA introduces an error": 217,
+    "both wrong": 1605,
+    "both right": 30478
+  },
+  "indices": {
+    "LoRA fixes an error of the original": [
+      17143,
+      20723,
+      27617
+    ],
+    "LoRA introduces an error": [
+      380,
+      960,
+      2532
+    ],
+    "both wrong": [
+      17000,
+      22078,
+      30093
+    ],
+    "both right": [
+      17789,
+      20690,
+      23888
+    ]
+  },
+  "rule": "3 patches per group, uniform without replacement, numpy default_rng(0)"
+}

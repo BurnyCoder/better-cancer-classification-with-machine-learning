@@ -1,24 +1,24 @@
-| Arm | Backbone(s) | Head | Dim | OOF BA [95% CI] | Valid BA [95% CI] | Valid BA seed SD | Valid AUROC | Publishable |
-|---|---|---|---|---|---|---|---|---|
-| `control_color_histogram` | — | logreg | 96 | 0.7870 [0.7580, 0.8106] | 0.8098 [0.7530, 0.8472] | 0.0000 | 0.8923 | yes |
-| `control_majority` | — | — | — | — | 0.5000 [0.5000, 0.5000] | 0.0000 | 0.5000 | yes |
-| `control_shuffled_labels` | Hibou-L | linear | 1024 | 0.5204 [0.4935, 0.5457] | 0.4731 [0.4280, 0.5212] | 0.0471 | 0.4637 | yes |
-| `H4_aug_control` | Hibou-L | linear | — | 0.9731 [0.9568, 0.9823] | 0.9344 [0.8853, 0.9627] | 0.0000 | 0.9780 | yes |
-| `S0_eva_exact_hibou_l` | Hibou-L | linear | 1024 | — | 0.9396 [0.8936, 0.9638] | 0.0007 | 0.9833 | yes |
-| `S0_hibou_l_cls_linear` | Hibou-L | linear | 1024 | 0.9498 [0.9366, 0.9600] | 0.9367 [0.8888, 0.9617] | 0.0015 | 0.9823 | yes |
-| `S0_scan_dinov2_reg_l` | DINOv2-L (natural images) | linear | 1024 | 0.8797 [0.8622, 0.8940] | 0.8682 [0.8103, 0.9023] | 0.0000 | 0.9448 | yes |
-| `S0_scan_random_vitl_reg4` | ViT-L random init | linear | 1024 | 0.7973 [0.7692, 0.8201] | 0.7902 [0.7232, 0.8334] | 0.0000 | 0.8721 | yes |
-| `S1_b_cls24_mean24` | Hibou-L | linear | 2048 | 0.9491 [0.9353, 0.9598] | 0.9353 [0.8830, 0.9607] | 0.0019 | 0.9816 | yes |
-| `S1_c_dinov2_last4` | Hibou-L | linear | 5120 | 0.9457 [0.9303, 0.9573] | 0.9316 [0.8712, 0.9593] | 0.0025 | 0.9796 | yes |
-| `S1_d_spread_6_12_18_24` | Hibou-L | linear | 8192 | 0.9469 [0.9318, 0.9585] | 0.9326 [0.8786, 0.9594] | 0.0020 | 0.9787 | yes |
-| `S1_e_best_plus_centre_tokens` | Hibou-L | linear | 2048 | 0.9496 [0.9361, 0.9599] | 0.9352 [0.8839, 0.9608] | 0.0017 | 0.9817 | yes |
-| `S1_f_best_plus_centre_view` | Hibou-L | linear | 2048 | 0.9497 [0.9362, 0.9599] | 0.9354 [0.8889, 0.9609] | 0.0000 | 0.9818 | yes |
-| `S2_logreg` | Hibou-L | logreg | 1024 | 0.9510 [0.9378, 0.9610] | 0.9365 [0.8886, 0.9618] | 0.0000 | 0.9827 | yes |
-| `S2_mlp` | Hibou-L | mlp | 1024 | 0.9312 [0.9112, 0.9462] | 0.9054 [0.8227, 0.9423] | 0.0000 | 0.9741 | yes |
-| `S3_d4_tta` | Hibou-L | linear | 1024 | 0.9522 [0.9396, 0.9617] | 0.9343 [0.8836, 0.9604] | 0.0000 | 0.9823 | yes |
-| `S3_no_tta_train64k` | Hibou-L | linear | 1024 | 0.9517 [0.9391, 0.9615] | 0.9352 [0.8854, 0.9612] | 0.0000 | 0.9822 | yes |
-| `S3b_oof_label_cleaning` | Hibou-L | linear | 1024 | 0.9525 [0.9394, 0.9624] | 0.9368 [0.8908, 0.9636] | 0.0000 | 0.9833 | yes |
-| `S5_lora` | Hibou-L | lora | — | 0.9798 [0.9654, 0.9883] | 0.9444 [0.8962, 0.9695] | 0.0000 | 0.9848 | yes |
-| `S5b_wise_0.25` | Hibou-L | lora | — | 0.9782 [0.9638, 0.9872] | 0.9388 [0.8914, 0.9663] | 0.0000 | 0.9827 | yes |
-| `S5b_wise_0.5` | Hibou-L | lora | — | 0.9789 [0.9644, 0.9879] | 0.9416 [0.8935, 0.9681] | 0.0000 | 0.9837 | yes |
-| `S5b_wise_0.75` | Hibou-L | lora | — | 0.9798 [0.9655, 0.9885] | 0.9427 [0.8945, 0.9686] | 0.0000 | 0.9843 | yes |
+| Arm | Backbone(s) | Head | Dim | OOF BA [95% CI] | OOF patches | Valid BA [95% CI] | Valid BA seed SD | Valid AUROC | Publishable |
+|---|---|---|---|---|---|---|---|---|---|
+| `control_color_histogram` | — | logreg | 96 | 0.7870 [0.7580, 0.8106] | all train | 0.8098 [0.7530, 0.8472] | 0.0000 | 0.8923 | yes |
+| `control_majority` | — | — | — | — | — | 0.5000 [0.5000, 0.5000] | 0.0000 | 0.5000 | yes |
+| `control_shuffled_labels` | Hibou-L | linear | 1024 | 0.5204 [0.4935, 0.5457] | all train | 0.4731 [0.4280, 0.5212] | 0.0471 | 0.4637 | yes |
+| `H4_aug_control` | Hibou-L | linear | — | 0.9731 [0.9568, 0.9823] | fold0 | 0.9344 [0.8853, 0.9627] | 0.0000 | 0.9780 | yes |
+| `S0_eva_exact_hibou_l` | Hibou-L | linear | 1024 | — | — | 0.9396 [0.8936, 0.9638] | 0.0007 | 0.9833 | yes |
+| `S0_hibou_l_cls_linear` | Hibou-L | linear | 1024 | 0.9498 [0.9366, 0.9600] | all train | 0.9367 [0.8888, 0.9617] | 0.0015 | 0.9823 | yes |
+| `S0_scan_dinov2_reg_l` | DINOv2-L (natural images) | linear | 1024 | 0.8797 [0.8622, 0.8940] | all train | 0.8682 [0.8103, 0.9023] | 0.0000 | 0.9448 | yes |
+| `S0_scan_random_vitl_reg4` | ViT-L random init | linear | 1024 | 0.7973 [0.7692, 0.8201] | all train | 0.7902 [0.7232, 0.8334] | 0.0000 | 0.8721 | yes |
+| `S1_b_cls24_mean24` | Hibou-L | linear | 2048 | 0.9491 [0.9353, 0.9598] | all train | 0.9353 [0.8830, 0.9607] | 0.0019 | 0.9816 | yes |
+| `S1_c_dinov2_last4` | Hibou-L | linear | 5120 | 0.9457 [0.9303, 0.9573] | all train | 0.9316 [0.8712, 0.9593] | 0.0025 | 0.9796 | yes |
+| `S1_d_spread_6_12_18_24` | Hibou-L | linear | 8192 | 0.9469 [0.9318, 0.9585] | all train | 0.9326 [0.8786, 0.9594] | 0.0020 | 0.9787 | yes |
+| `S1_e_best_plus_centre_tokens` | Hibou-L | linear | 2048 | 0.9496 [0.9361, 0.9599] | all train | 0.9352 [0.8839, 0.9608] | 0.0017 | 0.9817 | yes |
+| `S1_f_best_plus_centre_view` | Hibou-L | linear | 2048 | 0.9497 [0.9362, 0.9599] | all train | 0.9354 [0.8889, 0.9609] | 0.0000 | 0.9818 | yes |
+| `S2_logreg` | Hibou-L | logreg | 1024 | 0.9510 [0.9378, 0.9610] | all train | 0.9365 [0.8886, 0.9618] | 0.0000 | 0.9827 | yes |
+| `S2_mlp` | Hibou-L | mlp | 1024 | 0.9312 [0.9112, 0.9462] | all train | 0.9054 [0.8227, 0.9423] | 0.0000 | 0.9741 | yes |
+| `S3_d4_tta` | Hibou-L | linear | 1024 | 0.9522 [0.9396, 0.9617] | train64k | 0.9343 [0.8836, 0.9604] | 0.0000 | 0.9823 | yes |
+| `S3_no_tta_train64k` | Hibou-L | linear | 1024 | 0.9517 [0.9391, 0.9615] | train64k | 0.9352 [0.8854, 0.9612] | 0.0000 | 0.9822 | yes |
+| `S3b_oof_label_cleaning` | Hibou-L | linear | 1024 | 0.9525 [0.9394, 0.9624] | all train | 0.9368 [0.8908, 0.9636] | 0.0000 | 0.9833 | yes |
+| `S5_lora` | Hibou-L | lora | — | 0.9798 [0.9654, 0.9883] | fold0 | 0.9444 [0.8962, 0.9695] | 0.0000 | 0.9848 | yes |
+| `S5b_wise_0.25` | Hibou-L | lora | — | 0.9782 [0.9638, 0.9872] | fold0_minus_ckpt | 0.9388 [0.8914, 0.9663] | 0.0000 | 0.9827 | yes |
+| `S5b_wise_0.5` | Hibou-L | lora | — | 0.9789 [0.9644, 0.9879] | fold0_minus_ckpt | 0.9416 [0.8935, 0.9681] | 0.0000 | 0.9837 | yes |
+| `S5b_wise_0.75` | Hibou-L | lora | — | 0.9798 [0.9655, 0.9885] | fold0_minus_ckpt | 0.9427 [0.8945, 0.9686] | 0.0000 | 0.9843 | yes |

@@ -34,10 +34,11 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
   1. ✅ Reproduced Hibou-L with cheap controls and no-training baselines.
   2. ⏳ *Training now:* the **Hibou-L-only improvement** ladder (S1 representation, S2 head, S3 rotation/flip averaging, S3b label cleaning, S5 LoRA, S5b weight averaging), compared with the original Hibou-L, the cheap controls and the published baselines.
   3. Control models: DINOv2-L with natural-image weights, randomly initialised ViT-L, and the augmentation-matched frozen control (H4).
-  4. Baseline models: the 9 other foundation models (the B\* scan) and an end-to-end ConvNeXt-T.
-  5. Ablations that need no training.
-  6. More models: S4 fusion with the other foundation models, the S6 final combination, then the one-shot sealed test and out-of-hospital (WILDS) evaluation.
-- **Postponed to a later day:** ablations that need training new models, and the seed/hyperparameter sensitivity study.
+- **Postponed to a later day:**
+  - baseline models: the 9 other foundation models (B\*) and ConvNeXt-T;
+  - ablations, including those that need no training;
+  - S4 fusion and the S6 final combination;
+  - the seed/hyperparameter sensitivity study.
 - **Test split:** stays sealed until the whole ladder (through S6) is frozen.
 - **Plan of record:** every hypothesis and decision rule is fixed in the [pre-registration](reports/preregistration.md), which was pushed before any data was loaded.
 
@@ -54,6 +55,7 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 | `control_shuffled_labels` | Hibou-L | linear | 1024 | 0.5204 [0.4935, 0.5457] | 0.4731 [0.4280, 0.5212] | 0.0471 | 0.4637 | yes |
 | `S0_eva_exact_hibou_l` | Hibou-L | linear | 1024 | — | 0.9396 [0.8936, 0.9638] | 0.0007 | 0.9833 | yes |
 | `S0_hibou_l_cls_linear` | Hibou-L | linear | 1024 | 0.9498 [0.9366, 0.9600] | 0.9367 [0.8888, 0.9617] | 0.0015 | 0.9823 | yes |
+| `S1_b_cls24_mean24` | Hibou-L | linear | 2048 | 0.9491 [0.9353, 0.9598] | 0.9353 [0.8830, 0.9607] | 0.0019 | 0.9816 | yes |
 <!-- RESULTS:END -->
 
 ![Stage A](reports/figures/stage_a.png)

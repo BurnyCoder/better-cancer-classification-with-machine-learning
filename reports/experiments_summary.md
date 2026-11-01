@@ -33,7 +33,7 @@ Current incumbent: `S3b_oof_label_cleaning`.
 | Phikon | ViT-B/16, 86M | iBOT | TCGA tiles | pending | https://huggingface.co/owkin/phikon |
 | Phikon-v2 | ViT-L/16, 303M | DINOv2 | TCGA, CPTAC, GTEx, TCIA (public) | pending | https://huggingface.co/owkin/phikon-v2 |
 | DINOv2-L (control) | ViT-L/14 + 4 registers, 304M | DINOv2 | LVD-142M natural images | 0.8797 [0.8622, 0.8940] | https://arxiv.org/abs/2309.16588 |
-| Random ViT-L (control) | ViT-L/14 + 4 registers, 304M | none (random init) | none | pending | — |
+| Random ViT-L (control) | ViT-L/14 + 4 registers, 304M | none (random init) | none | 0.7973 [0.7692, 0.8201] | — |
 
 ## Experiments
 

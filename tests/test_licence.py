@@ -21,3 +21,14 @@ def test_any_restricted_backbone_taints_the_lineage():
     assert not lineage_publishable(["hibou_l", "virchow2"])
     assert not lineage_publishable(["phikon"])
     assert lineage_publishable([])  # e.g. the colour-histogram control
+
+
+def test_publish_gate_refuses_restricted_lineage():
+    import pytest
+
+    from pcam_hc.publish import LicenceError, assert_publishable
+
+    assert_publishable({"name": "ok", "backbones": ["hibou_l", "virchow"]})
+    for bad in (["hibou_l", "virchow2"], ["phikon_v2"]):
+        with pytest.raises(LicenceError):
+            assert_publishable({"name": "bad", "backbones": bad})

@@ -87,6 +87,34 @@ def backbone_scan_figure(records: dict) -> None:
     plt.close(fig)
 
 
+def site_data(records: dict) -> None:
+    """Aggregate-only JSON for the GitHub Pages explorer (licence-clean for every backbone)."""
+
+    def block(b):
+        return {"ba": b["ba"], "lo": b["ci_ba"][0], "hi": b["ci_ba"][1], "auroc": b["auroc"]}
+
+    arms_out = {}
+    for name, r in records.items():
+        b = r["backbones"][0] if r["backbones"] else ""
+        group = "Hibou-L" if b == "hibou_l" else ("control" if (b in CONTROLS or name.startswith("control")) else
+                                                   "other foundation model")
+        arms_out[name] = {"label": PRETTY.get(b, b) if name.startswith("S0_scan_") or name == "S0_hibou_l_cls_linear" else name,
+                          "group": group, "backbones": [PRETTY.get(x, x) for x in r["backbones"]],
+                          "publishable": r.get("publishable", True), "valid": block(r["valid"]["seed_avg"]),
+                          **({"oof": block(r["oof"]["seed_avg"])} if "oof" in r else {})}
+    steps = []
+    for p in sorted((PATHS.results / "steps").glob("*.json"), key=lambda p: p.stat().st_mtime):
+        s = json.loads(p.read_text())
+        steps.append({k: s[k] for k in ("step", "incumbent", "candidates", "winner", "adopted")})
+    load = lambda f: json.loads((PATHS.results / f).read_text()) if (PATHS.results / f).exists() else None  # noqa: E731
+    final = load("final/summary.json")
+    out = {"arms": arms_out, "steps": steps, "gate": load("h2_gate.json"), "ladder": load("ladder.json"),
+           "final": final}
+    site = PROJECT_ROOT / "site" / "data"
+    site.mkdir(parents=True, exist_ok=True)
+    (site / "results.json").write_text(json.dumps(out, indent=1, default=float))
+
+
 def inject_readme(markdown: str, marker: str) -> None:
     """Replace the README block between <!-- {marker}:START --> and <!-- {marker}:END -->."""
     readme = PROJECT_ROOT / "README.md"
@@ -103,6 +131,7 @@ def build() -> None:
     table = arms_table(records)
     (TAB_DIR / "arms.md").write_text(table + "\n", encoding="utf-8")
     backbone_scan_figure(records)
+    site_data(records)
     gate_path = PATHS.results / "h2_gate.json"
     if gate_path.exists():
         g = json.loads(gate_path.read_text())

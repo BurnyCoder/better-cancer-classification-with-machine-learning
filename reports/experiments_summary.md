@@ -16,7 +16,7 @@ We take the best published AI model for spotting breast-cancer metastases in sma
 | S5_lora | `S3b_oof_label_cleaning` | `S5_lora` | yes |
 | S5b_weight_space | `S5_lora` | `S5b_wise_0.75` | no |
 
-Current incumbent: `S3b_oof_label_cleaning`.
+Best Hibou-L pipeline: `S5_lora`. Frozen-feature incumbent (the input to the postponed S4 fusion): `S3b_oof_label_cleaning`.
 
 ## Networks
 

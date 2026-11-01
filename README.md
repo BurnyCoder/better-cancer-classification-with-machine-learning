@@ -22,7 +22,7 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 - ✅ **Exact reproduction.** Our Hibou-L probe scores **0.9394 ± 0.0007** validation balanced accuracy (BA; 5 seeds), against the published **0.939** ([eva](https://github.com/kaiko-ai/eva)). Our remote-code-free model matches Hibou's own code to a cosine of 1.000000.
 - ✅ **Incumbent under cross-validation** over 216 training slides: OOF BA 0.950 (95% CI 0.937–0.960); validation 0.937 (95% CI 0.889–0.962).
 - ✅ **Controls behave as expected.** Shuffled labels: 0.520 (chance). Colour histogram only: 0.787 (95% CI 0.758–0.811). Colour carries signal, but far less than Hibou-L.
-- ⏳ **Improvement ladder (release 2, in progress).** 14 classifier(s) trained on frozen Hibou-L features so far. The best paired out-of-fold difference from the original is +0.88 pt BA (95% CI +0.52 to +1.49; `S5b_wise_0.75`). Steps decided: 6; adopted: 2.
+- 📈 **Improvement ladder and controls** (validation and cross-validation; test still sealed): Of 6 decided ladder steps, 2 were adopted (`S3b_label_cleaning`, `S5_lora`). No frozen-feature classifier has a validation gain whose 95% CI excludes zero (largest: +0.01 pt [-0.76, +0.40], `S3b_oof_label_cleaning`). LoRA fine-tuning raises validation BA from 0.9367 to 0.9444 (paired Δ +0.77 pt [+0.27, +1.41]). LoRA also beats a frozen head trained on the same images with the same augmentation (Δ valid +0.99 pt [+0.58, +1.51]). With Hibou-L's architecture, natural-image weights reach 0.880 and random weights 0.797 OOF BA, against 0.950 for Hibou-L.
 - ⚠️ **Data leak found in PCam.** 33 distinct test images are pixel-identical to train images. All come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, at identical slide coordinates, which indicates a duplicate scan. CAMELYON16 notes list test_049 as a duplicate slide removed from the official release, but it is still in PCam. Every test result will also be reported without it (decided while test was sealed).
 - ⚠️ **Validation split is small.** It has 54 slides, 22 with tumour, so its CIs are 3.1× wider than the train CV ones. Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.
 - ⚠️ **The official Camelyon17-WILDS test hospital is not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 0.69 vs. 1.68 to RUMC). Our out-of-hospital check therefore uses CWZ, RST and LPON.
@@ -78,6 +78,7 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 
 | Step | Classifier | OOF BA [95% CI] | Δ OOF vs original [95% CI] | sign-flip p | Valid BA | Δ valid vs original |
 |---|---|---|---|---|---|---|
+| H4 control (frozen, LoRA's augmentation) | `H4_aug_control` | 0.9731 [0.9568, 0.9823] | +0.20 pt [-0.10, +0.84] | 0.518 | 0.9344 | -0.23 pt |
 | S1 representation | `S1_b_cls24_mean24` | 0.9491 [0.9353, 0.9598] | -0.07 pt [-0.24, +0.06] | 0.426 | 0.9353 | -0.14 pt |
 | S1 representation | `S1_c_dinov2_last4` | 0.9457 [0.9303, 0.9573] | -0.40 pt [-0.89, -0.12] | 0.0284 | 0.9316 | -0.51 pt |
 | S1 representation | `S1_d_spread_6_12_18_24` | 0.9469 [0.9318, 0.9585] | -0.29 pt [-0.69, -0.04] | 0.0931 | 0.9326 | -0.41 pt |

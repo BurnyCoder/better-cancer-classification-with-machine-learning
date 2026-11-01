@@ -36,9 +36,17 @@ def cmd_access(args):
 def cmd_embed(args):
     from pcam_hc.embed import embed_backbone
 
+    indices = None
+    if args.subset == "train64k":  # pre-registered fixed subset (seed 0), stratified by (fold, label)
+        from pcam_hc.data import load_labels, load_meta, make_folds, make_subset
+
+        indices = make_subset(make_folds(load_meta("train"), config.N_FOLDS), load_labels("train"), config.SUBSET_SIZE)
     for backbone in args.backbones:
         for split in args.splits:
-            embed_backbone(backbone, split, view=args.view, batch_size=args.batch_size)
+            for view in args.views:
+                embed_backbone(backbone, split, view=view, batch_size=args.batch_size,
+                               indices=indices if split == "train" else None,
+                               subset=args.subset if split == "train" else None)
 
 
 def cmd_parity(args):
@@ -117,11 +125,37 @@ def cmd_stage_a(args):
             if (out / "arms" / f"{arm}.json").exists():
                 continue
             ex.run_arm(ctx, arm, load(name, "train", CLS), load(name, "valid", CLS), backbones=(name,),
-                       description=f"{name} CLS, eva linear head, CV protocol")
+                       description=f"{name} CLS, eva linear head, CV protocol",
+                       recipe={"backbone": name, "representation": {"parts": [[-1, "cls"]], "center": False,
+                                                                    "views": ["full"]}})
+
+
+def cmd_stage_b(args):
+    """Stage B: frozen-feature ladder steps S1, S2, S3 (D4 TTA), S3b (label cleaning), S4 (fusion)."""
+    import json as _json
+
+    from pcam_hc import stage_b
+    from pcam_hc.experiments import Context
+
+    ctx = Context()
+    steps = {"s1": stage_b.step_s1, "s2": stage_b.step_s2, "s3": stage_b.step_s3, "s3b": stage_b.step_s3b}
+    for part in args.parts:
+        if part == "s4":
+            pool = _json.loads((config.PATHS.results / "model_pool.json").read_text())
+            controls = {"hibou_l", "dinov2_reg_l", "random_vitl_reg4"}
+            stage_b.step_s4(ctx, [b for b, ok in pool.items() if ok and b not in controls])
+        else:
+            steps[part](ctx)
+
+
+def cmd_report(args):
+    from pcam_hc.report import build
+
+    build()
 
 
 PHASES = {"download": cmd_download, "verify": cmd_verify, "access": cmd_access, "embed": cmd_embed,
-          "parity": cmd_parity, "stage-a": cmd_stage_a}
+          "parity": cmd_parity, "stage-a": cmd_stage_a, "stage-b": cmd_stage_b, "report": cmd_report}
 
 
 def main():
@@ -130,9 +164,11 @@ def main():
     parser.add_argument("--no-duplicates", action="store_true", help="verify: skip the pixel-hash duplicate scan")
     parser.add_argument("--backbones", nargs="+", default=["hibou_l"], help="embed: registry names")
     parser.add_argument("--splits", nargs="+", default=["train", "valid"], help="embed: splits (test is sealed)")
-    parser.add_argument("--view", default="full", help="embed: full | center64 | d4_k")
+    parser.add_argument("--views", nargs="+", default=["full"], help="embed: full | center64 | d4_k")
+    parser.add_argument("--subset", default=None, help="embed: 'train64k' restricts the train split to the subset")
     parser.add_argument("--batch-size", type=int, default=128)
-    parser.add_argument("--parts", nargs="+", default=["h2", "s0", "controls", "scan"], help="stage-a: sub-steps")
+    parser.add_argument("--parts", nargs="+", default=["h2", "s0", "controls", "scan"],
+                        help="stage-a: h2 s0 controls scan; stage-b: s1 s2 s3 s3b s4")
     args = parser.parse_args()
     setup_logging(args.phase)
     PHASES[args.phase](args)

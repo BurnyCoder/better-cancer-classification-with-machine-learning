@@ -104,15 +104,16 @@ def lineage_publishable(backbones) -> bool:
 
 
 def run_arm(ctx: Context, name: str, X_train, X_valid, kind: str = "linear", backbones=("hibou_l",),
-            description: str = "", y_train=None, **kw) -> dict:
-    """Standard CV-protocol arm: OOF on train + full-train refit scored on valid."""
+            description: str = "", y_train=None, recipe: dict | None = None, **kw) -> dict:
+    """Standard CV-protocol arm: OOF on train + full-train refit scored on valid. `recipe` records how
+    the features were built (backbone, representation, views) so the saved heads can score new splits."""
     y_fit = ctx.y_train if y_train is None else y_train
     oof = cv_oof(kind, X_train, y_fit, ctx.folds, **kw)
     val = refit(kind, X_train, y_fit, X_valid, save_as=name, **kw)
     record = {"name": name, "description": description, "head": kind, "backbones": list(backbones),
               "publishable": lineage_publishable(backbones), "dim": int(X_train.shape[1]),
               "oof": summarise(ctx.y_train, oof, ctx.slides_train),
-              "valid": summarise(ctx.y_valid, val, ctx.slides_valid)}
+              "valid": summarise(ctx.y_valid, val, ctx.slides_valid), "recipe": recipe or {}}
     save_arm(name, record, {"oof": oof, "valid": val})
     return record
 

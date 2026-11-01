@@ -18,6 +18,8 @@ from sklearn.metrics import roc_auc_score
 
 from pcam_hc.config import THRESHOLD
 
+AUROC_BOOT = 2000  # replicates for AUROC intervals (BA intervals use the full n_boot, default 10,000)
+
 
 @dataclass
 class SlideIndex:
@@ -96,7 +98,8 @@ def slide_bootstrap_ci(y, logits, slides, n_boot: int = 10_000, seed: int = 0) -
     boot_ba = _ba_from_counts(weights @ counts)
     jack_ba = _ba_from_counts(counts.sum(0) - counts)  # leave one slide out
     ba = float(_ba_from_counts(counts.sum(0)))
-    boot_auc = np.array([_auroc(y[i], logits[i]) for i in (_patches(idx, w) for w in weights)])
+    # AUROC needs patch-level re-ranking per replicate, so it uses the first 2,000 replicates (BA uses all).
+    boot_auc = np.array([_auroc(y[i], logits[i]) for i in (_patches(idx, w) for w in weights[:AUROC_BOOT])])
     jack_auc = np.array([_auroc(np.delete(y, m), np.delete(logits, m)) for m in idx.members])
     auc = float(_auroc(y, logits))
     return {"ba": ba, "ci_ba": bca_interval(ba, boot_ba, jack_ba),
@@ -137,7 +140,7 @@ def paired_comparison(y, logits_a, logits_b, slides, n_boot: int = 10_000, n_fli
     jack = _ba_from_counts(cb.sum(0) - cb) - _ba_from_counts(ca.sum(0) - ca)
     delta = float(_ba_from_counts(cb.sum(0)) - _ba_from_counts(ca.sum(0)))
     boot_auc = []
-    for w in weights[: min(n_boot, 2000)]:  # AUROC bootstrap is costlier; 2000 replicates suffice for a CI
+    for w in weights[:AUROC_BOOT]:  # AUROC bootstrap is costlier; 2,000 replicates suffice for a 95% CI
         i = _patches(idx, w)
         boot_auc.append(_auroc(y[i], lb[i]) - _auroc(y[i], la[i]))
     jack_auc = [_auroc(np.delete(y, m), np.delete(lb, m)) - _auroc(np.delete(y, m), np.delete(la, m)) for m in idx.members]

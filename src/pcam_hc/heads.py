@@ -129,8 +129,8 @@ def _fit_logreg(X, y, C: float, max_iter: int = 500, chunk: int = 32768, init: H
 
 
 def fit_head(kind: str, X, y, seed: int = 0, X_val=None, y_val=None, max_steps: int = EVA.max_steps,
-             C: float = 1.0) -> Head:
-    """Fit one head. kind: 'linear' (eva), 'logreg' (needs C), 'mlp'."""
+             C: float = 1.0, init: Head | None = None) -> Head:
+    """Fit one head. kind: 'linear' (eva), 'logreg' (needs C; `init` warm-starts it), 'mlp'."""
     torch.manual_seed(seed)
     d = X.shape[1]
     if kind == "linear":
@@ -138,7 +138,7 @@ def fit_head(kind: str, X, y, seed: int = 0, X_val=None, y_val=None, max_steps: 
                             EVA.batch_size, X_val, y_val)
         return Head(module)
     if kind == "logreg":
-        return _fit_logreg(X, y, C)
+        return _fit_logreg(X, y, C, init=init)
     if kind == "mlp":
         mu, sd = _zscore_stats(X)
         module = nn.Sequential(nn.Linear(d, 512), nn.GELU(), nn.Dropout(0.1), nn.Linear(512, 1)).to(DEVICE)

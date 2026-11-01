@@ -50,4 +50,5 @@ markers = ["data: needs the downloaded PCam files", "gpu: needs a CUDA GPU"]
 [dependency-groups]
 dev = [
     "pytest>=9.2.0",
+    "scikit-image>=0.26.0",
 ]

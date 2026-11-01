@@ -17,8 +17,20 @@ from pcam_hc.data import center_crop, d4_view, prefetch
 log = logging.getLogger(__name__)
 
 
-def apply_view(x: torch.Tensor, view: str) -> torch.Tensor:
-    """Image view of a uint8 (B,3,H,W) batch: 'full', 'center64', or 'd4_k' (k = 0..7)."""
+def apply_view(x: torch.Tensor, view: str, idx=None) -> torch.Tensor:
+    """Image view of a uint8 (B,3,H,W) batch: 'full', 'center64', 'd4_k' (k = 0..7), 'aug_s<seed>'
+    (random D4 + HED-light per image, seeded by the batch's first row index `idx[0]`), or a composition
+    applied left to right, e.g. 'center64+d4_3' (centre crop, then D4 element 3;
+    "+" because "|" is not allowed in Windows file names)."""
+    if "+" in view:
+        for part in view.split("+"):
+            x = apply_view(x, part, idx)
+        return x
+    if view.startswith("aug_s"):  # one seeded random D4 + HED-light view per image (H4 control)
+        from pcam_hc.finetune import augment
+
+        g = torch.Generator().manual_seed(int(view[5:]) * 1_000_003 + int(idx[0]))
+        return augment(x, 0.05, g)
     if view == "full":
         return x
     if view == "center64":
@@ -42,7 +54,7 @@ def embed_images(encoder, read_fn, n: int, path: Path, batch_size: int = 128, vi
     t0, seen = time.time(), 0
     for idx, imgs in prefetch(read_fn, batches):
         x = torch.from_numpy(np.ascontiguousarray(imgs)).permute(0, 3, 1, 2)  # NHWC -> NCHW, uint8
-        feats = encoder(apply_view(x, view))
+        feats = encoder(apply_view(x, view, idx))
         out[idx[0] : idx[-1] + 1] = feats.cpu().numpy().astype(np.float16)
         seen += len(idx)
         if idx[-1] + 1 == n or (idx[0] // batch_size) % 50 == 0:  # flush + log every 50 batches

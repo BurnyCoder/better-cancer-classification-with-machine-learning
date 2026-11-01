@@ -195,7 +195,7 @@ def build_paper() -> str | None:
     a("")
     if lrows:
         a("== Improvement ladder (release 2, in progress)")
-        a("Hibou-L stays frozen in S1–S3b; each candidate trains a new classifier on features read from it (5 slide-grouped folds; 5 seeds for S1 b–c, 1 seed from S1 d on, by the author's decision; seed sensitivity is postponed). "
+        a("Hibou-L stays frozen in S1–S3b; each candidate trains a new classifier on features read from it (5 slide-grouped folds; 5 seeds for S1 b–e, 1 seed from S1 f on, by the author's decision; seed sensitivity is postponed). "
           "Each classifier is compared with the original probe, paired on the same patches. Per-candidate p-values are descriptive; "
           "the pre-registered adoption rule applies Holm within a step and the validation no-harm gate.")
         a(_table(["Step", "Classifier", "OOF BA [95% CI]", "Δ OOF vs original [95% CI] (pt)", "p", "Δ valid (pt)"],

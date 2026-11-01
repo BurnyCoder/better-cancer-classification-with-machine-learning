@@ -164,6 +164,13 @@ def cmd_stage_b(args):
             steps[part](ctx)
 
 
+def cmd_wilds_prepare(args):
+    """Camelyon17-WILDS: count checks vs. the paper, fixed subsample, decoded pixels, hospital check."""
+    from pcam_hc.wilds import prepare
+
+    print(json.dumps(prepare(), indent=2, default=str))
+
+
 def cmd_report(args):
     from pcam_hc.report import build
 
@@ -171,7 +178,7 @@ def cmd_report(args):
 
 
 PHASES = {"download": cmd_download, "verify": cmd_verify, "access": cmd_access, "embed": cmd_embed,
-          "embed-tta": cmd_embed_tta,
+          "embed-tta": cmd_embed_tta, "wilds-prepare": cmd_wilds_prepare,
           "parity": cmd_parity, "stage-a": cmd_stage_a, "stage-b": cmd_stage_b, "report": cmd_report}
 
 

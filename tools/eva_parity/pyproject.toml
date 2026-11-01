@@ -1,0 +1,16 @@
+# Isolated environment for the H2 embedding-parity check against kaiko-eva.
+# eva loads Hibou-L through Hugging Face remote code (trust_remote_code), written for transformers 4.x,
+# so transformers is pinned to 4.x here; the main project uses transformers 5 with the native class.
+[project]
+name = "eva-parity"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "kaiko-eva[vision]==0.4.5",
+    "transformers==4.46.3",
+    "h5py",
+    "numpy",
+]
+
+[tool.uv]
+package = false

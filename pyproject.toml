@@ -7,7 +7,24 @@ authors = [
     { name = "BurnyCoder", email = "happymancz@email.cz" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "h5py>=3.16.0",
+    "huggingface-hub>=2.4.0",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.4",
+    "pandas>=3.1.0",
+    "peft>=0.21.2",
+    "pyarrow>=26.0.0",
+    "python-dotenv>=1.2.4",
+    "safetensors>=0.8.0",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+    "timm>=1.0.30",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+    "tqdm>=4.70.1",
+    "transformers>=5.22.1",
+]
 
 [project.scripts]
 pcam-hc = "pcam_hc:main"
@@ -15,3 +32,24 @@ pcam-hc = "pcam_hc:main"
 [build-system]
 requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"
+
+# PyTorch CUDA 12.8 wheels (required for Blackwell sm_120 GPUs).
+# Source: https://docs.astral.sh/uv/guides/integration/pytorch/
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128" }]
+torchvision = [{ index = "pytorch-cu128" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["data: needs the downloaded PCam files", "gpu: needs a CUDA GPU"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "scikit-image>=0.26.0",
+]

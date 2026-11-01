@@ -1,0 +1,78 @@
+{
+  "mirror_split_sizes": {
+    "test": 85054,
+    "train": 302436,
+    "validation": 68464
+  },
+  "per_center": {
+    "0": 59436,
+    "1": 34904,
+    "2": 85054,
+    "3": 129838,
+    "4": 146722
+  },
+  "slides_per_center": {
+    "0": 10,
+    "1": 10,
+    "2": 10,
+    "3": 10,
+    "4": 10
+  },
+  "n_slides": 50,
+  "test_matches_paper": true,
+  "train_matches_paper": true,
+  "val_matches_paper": true,
+  "subsample_per_center": {
+    "0": 10000,
+    "1": 9888,
+    "2": 10000,
+    "3": 10000,
+    "4": 10000
+  },
+  "subsample_positive_rate_per_center": {
+    "0": 0.3141,
+    "1": 0.293,
+    "2": 0.2943,
+    "3": 0.1868,
+    "4": 0.2051
+  },
+  "hospital_check": {
+    "l1_distance_to_pcam_hospital": {
+      "0": {
+        "RUMC": 0.9555001627604167,
+        "UMCU": 1.337736545138889
+      },
+      "1": {
+        "RUMC": 1.6912643229166668,
+        "UMCU": 1.5939383138020833
+      },
+      "2": {
+        "RUMC": 1.681677734375,
+        "UMCU": 0.6925079210069445
+      },
+      "3": {
+        "RUMC": 0.9352642144097223,
+        "UMCU": 1.1046660698784723
+      },
+      "4": {
+        "RUMC": 2.344453070746528,
+        "UMCU": 1.947952962239583
+      }
+    },
+    "pcam_assumed_hospital_split_l1": 1.2995426432291666,
+    "pcam_random_slide_split_l1": 0.14263075086805557,
+    "reference_rule": "assumed Camelyon16 numbering (RUMC: tumor<=70, normal<=100)"
+  },
+  "center_hospital": {
+    "0": "CWZ",
+    "1": "RST",
+    "2": "RUMC or UMCU",
+    "3": "RUMC or UMCU",
+    "4": "LPON"
+  },
+  "primary_ood_centers": [
+    0,
+    1,
+    4
+  ]
+}

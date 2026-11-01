@@ -13,6 +13,7 @@ compared with the original Hibou-L (baseline) and the controls. `release` does o
 import json
 import logging
 import subprocess
+import sys
 import time
 
 from pcam_hc.config import PATHS, PROJECT_ROOT
@@ -62,18 +63,18 @@ def _settled_results(min_age: float = 60.0) -> set:
 
 
 def watch(poll: float = 120.0) -> None:
-    """Release every new classifier/step decision as soon as its result file has settled."""
+    """Release every new classifier/step decision as soon as its result file has settled. Each release
+    runs in a fresh `main.py release` process: an in-process call would keep using the report code
+    imported when the watcher started and overwrite later report changes."""
     released = set(json.loads(STATE.read_text())) if STATE.exists() else set()
     while True:
         new = sorted(_settled_results() - released)
         if new:
             names = ", ".join(n.split("/")[1] for n in new)
-            try:
-                release(f"Release: {names}", f"New trained classifier(s) / decision(s): {names}. Compared with the "
-                                             "original Hibou-L probe and the controls; paper, reports, README, site "
-                                             "and Hugging Face updated.")
+            r = subprocess.run([sys.executable, "main.py", "release", "--title", f"Release: {names}"], cwd=PROJECT_ROOT)
+            if r.returncode == 0:
                 released |= set(new)
                 STATE.write_text(json.dumps(sorted(released)))
-            except Exception as e:  # keep watching; the next poll retries
-                log.exception("release failed: %s", e)
+            else:  # keep watching; the next poll retries
+                log.error("release of %s failed (exit %d)", names, r.returncode)
         time.sleep(poll)

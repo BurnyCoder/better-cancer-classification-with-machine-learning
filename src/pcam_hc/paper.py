@@ -37,31 +37,36 @@ REFS = [
     ("camelyon16", "B. Ehteshami Bejnordi et al. Diagnostic assessment of deep learning algorithms for detection of lymph node metastases in women with breast cancer. JAMA 2017.", "https://jamanetwork.com/journals/jama/fullarticle/2665774"),
     ("camelyon", "G. Litjens et al. 1399 H&E-stained sentinel lymph node sections of breast cancer patients: the CAMELYON dataset. GigaScience 2018.", "https://academic.oup.com/gigascience/article/7/6/giy065/5026175"),
     ("hibou", "D. Nechaev, A. Pchelnikov, E. Ivanova. Hibou: A family of foundational vision transformers for pathology. 2024.", "https://arxiv.org/abs/2406.05074"),
-    ("eva", "kaiko.ai. eva: evaluation framework for pathology foundation models (leaderboard and PCam config).", "https://github.com/kaiko-ai/eva"),
+    ("eva", "kaiko.ai. eva: evaluation framework for pathology foundation models (leaderboard and PCam config).", "https://kaiko-ai.github.io/eva/main/leaderboards/"),
     ("midnight", "M. Karasikov et al. Training state-of-the-art pathology foundation models with orders of magnitude less data. 2025.", "https://arxiv.org/abs/2504.05186"),
     ("virchow2", "E. Zimmermann et al. Virchow2: Scaling self-supervised mixed magnification models in pathology. 2024.", "https://arxiv.org/abs/2408.00738"),
     ("gigapath", "H. Xu et al. A whole-slide foundation model for digital pathology from real-world data. Nature 2024.", "https://doi.org/10.1038/s41586-024-07441-w"),
-    ("dinov2", "M. Oquab et al. DINOv2: Learning robust visual features without supervision. 2023.", "https://arxiv.org/abs/2304.07193"),
-    ("registers", "T. Darcet et al. Vision transformers need registers. 2023.", "https://arxiv.org/abs/2309.16588"),
+    ("dinov2", "M. Oquab et al. DINOv2: Learning robust visual features without supervision. TMLR 2024.", "https://arxiv.org/abs/2304.07193"),
+    ("registers", "T. Darcet et al. Vision transformers need registers. ICLR 2024.", "https://arxiv.org/abs/2309.16588"),
     ("lee2024", "J. Lee et al. Benchmarking pathology foundation models: adaptation strategies and scenarios. 2024.", "https://arxiv.org/abs/2410.16038"),
-    ("lora", "E. J. Hu et al. LoRA: Low-rank adaptation of large language models. 2021.", "https://arxiv.org/abs/2106.09685"),
+    ("lora", "E. J. Hu et al. LoRA: Low-rank adaptation of large language models. ICLR 2022.", "https://arxiv.org/abs/2106.09685"),
     ("lpft", "A. Kumar et al. Fine-tuning can distort pretrained features and underperform out-of-distribution. ICLR 2022.", "https://arxiv.org/abs/2202.10054"),
     ("wise", "M. Wortsman et al. Robust fine-tuning of zero-shot models. CVPR 2022.", "https://arxiv.org/abs/2109.01903"),
-    ("soups", "M. Wortsman et al. Model soups. ICML 2022.", "https://arxiv.org/abs/2203.05482"),
-    ("multilayer", "Attentive multilayer fusion for vision transformers (arXiv:2601.09322). 2026.", "https://arxiv.org/abs/2601.09322"),
-    ("caruana", "R. Caruana et al. Ensemble selection from libraries of models. ICML 2004.", "https://www.cs.cornell.edu/~caruana/ctp/ct.papers/caruana.icml04.icdm06long.pdf"),
-    ("tellez", "D. Tellez et al. Quantifying the effects of data augmentation and stain color normalization in CNNs for computational pathology. 2019.", "https://arxiv.org/abs/1902.06543"),
+    ("soups", "M. Wortsman et al. Model soups: averaging weights of multiple fine-tuned models improves accuracy without increasing inference time. ICML 2022.", "https://arxiv.org/abs/2203.05482"),
+    ("multilayer", "L. Ciernik, M. Morik, L. Thede, L. Eyring, S. Nakajima, Z. Akata, L. Muttenthaler. Attentive multilayer fusion for vision transformers. 2026.", "https://arxiv.org/abs/2601.09322"),
+    ("caruana", "R. Caruana, A. Niculescu-Mizil, G. Crew, A. Ksikes. Ensemble selection from libraries of models. ICML 2004.", "https://doi.org/10.1145/1015330.1015432"),
+    ("tellez", "D. Tellez et al. Quantifying the effects of data augmentation and stain color normalization in convolutional neural networks for computational pathology. Medical Image Analysis 58:101544, 2019.", "https://doi.org/10.1016/j.media.2019.101544"),
     ("wilds", "P. W. Koh et al. WILDS: A benchmark of in-the-wild distribution shifts. ICML 2021.", "https://arxiv.org/abs/2012.07421"),
     ("efron", "B. Efron. Better bootstrap confidence intervals. JASA 1987.", "https://doi.org/10.1080/01621459.1987.10478410"),
     ("holm", "S. Holm. A simple sequentially rejective multiple test procedure. Scand. J. Stat. 1979.", "https://www.jstor.org/stable/4615733"),
-    ("selfclean", "F. Gröger et al. Intrinsic self-supervision for data quality audits (SelfClean). 2023.", "https://arxiv.org/abs/2305.17048"),
-    ("panda", "PANDA challenge 1st-place solution (PND): OOF-based label-noise removal.", "https://github.com/kentaroy47/Kaggle-PANDA-1st-place-solution"),
+    ("selfclean", "F. Gröger et al. Intrinsic self-supervision for data quality audits (SelfClean). NeurIPS 2024.", "https://arxiv.org/abs/2305.17048"),
+    ("panda", "Team PND. PANDA challenge 1st-place solution (code, including OOF-based label-noise removal). 2020.", "https://github.com/kentaroy47/Kaggle-PANDA-1st-place-solution"),
     ("hcd", "A. Jaiswal et al. Semi-supervised learning for cancer detection of lymph node metastases. CVPR Workshops 2019 (Kaggle PCam data; TTA inside a model ensemble).", "https://arxiv.org/abs/1906.09587"),
-    ("polyak", "B. T. Polyak, A. B. Juditsky. Acceleration of stochastic approximation by averaging. SIAM J. Control Optim. 1992.", "https://doi.org/10.1137/0330046"),
-    ("tomar", "D. Tomar, A. Binder, A. Kleppe. Are nuclear masks all you need for improved out-of-domain generalisation? NeurIPS 2024 (CAMELYON17 scanners per centre, Sec. 4.1).", "https://arxiv.org/abs/2411.09373"),
-    ("peft", "Z. Mai et al. Lessons and insights from a unifying study of parameter-efficient fine-tuning in visual recognition. 2024.", "https://arxiv.org/abs/2409.16434"),
+    ("ema", "D. Morales-Brotons, T. Vogels, H. Hendrikx. Exponential moving average of weights in deep learning: dynamics and benefits. TMLR 2024.", "https://arxiv.org/abs/2411.18704"),
+    ("tomar", "D. Tomar, A. Binder, A. Kleppe. Are nuclear masks all you need for improved out-of-domain generalisation? A closer look at cancer classification in histopathology. NeurIPS 2024 (Sec. 4.1: CAMELYON17 centres 0, 3 and 4 share one scanner).", "https://arxiv.org/abs/2411.09373"),
+    ("peft", "Z. Mai et al. Lessons and insights from a unifying study of parameter-efficient fine-tuning (PEFT) in visual recognition. CVPR 2025.", "https://arxiv.org/abs/2409.16434"),
     ("rotinv", "M. Elphick, S. Turajlic, G. Yang. Are the latent representations of foundation models for pathology invariant to rotation? 2024.", "https://arxiv.org/abs/2412.11938"),
-    ("seg2404", "J. Wang et al. BAHOP: Similarity-based basin hopping for a fast hyper-parameter search in WSI classification. 2024 (v1 lists CAMELYON17 centre names).", "https://arxiv.org/abs/2404.11161"),
+    ("seg2404", "J. Wang, Y. Cui, Y. Mao, N. Guan, C. J. Xue. Pre-processing matters: A segment search method for WSI classification. arXiv:2404.11161v1, 2024 (Sec. 2.1 names CAMELYON17 centres 0, 1, 4).", "https://arxiv.org/abs/2404.11161v1"),
+    ("tellez2018", "D. Tellez et al. Whole-slide mitosis detection in H&E breast histology using PHH3 as a reference to train distilled stain-invariant convolutional networks. IEEE TMI 37(9), 2018 (App. B: HED stain augmentation).", "https://arxiv.org/abs/1808.05896"),
+    ("pcam", "B. S. Veeling. PatchCamelyon (PCam) dataset README: label rule, sampling and file checksums.", "https://github.com/basveeling/pcam"),
+    ("c16readme", "CAMELYON16 data set README (lists test_049 as a duplicate slide removed from the data set).", "https://camelyon-dataset.s3.amazonaws.com/CAMELYON16/README.md"),
+    ("fieldwelsh", "C. A. Field, A. H. Welsh. Bootstrapping clustered data. JRSS-B 69(3):369–390, 2007.", "https://doi.org/10.1111/j.1467-9868.2007.00593.x"),
+    ("hiboucard", "HistAI. Hibou-L model card and configuration (parameter count, 4 registers, SwiGLU).", "https://huggingface.co/histai/hibou-L"),
 ]
 CITE = {k: i + 1 for i, (k, _, _) in enumerate(REFS)}
 
@@ -75,6 +80,11 @@ def build_paper() -> str | None:
     s0, eva = _j("arms/S0_hibou_l_cls_linear.json"), _j("arms/S0_eva_exact_hibou_l.json")
     if not all([dv, parity, gate, s0, eva]):
         return None
+    from pcam_hc.report_experiments import SELFCLEAN_PCAM_LABEL_ERRORS, SELFCLEAN_RATE, duplicate_slide
+    from pcam_hc.wilds import MIRROR_REVISION
+
+    dup, ep, splits = duplicate_slide(dv), eva["eva_protocol"], ("train", "valid", "test")
+    multi = sum(dv[f"{s}_duplicate_groups_multi_slide"] for s in splits)
     ctrl = {k: _j(f"arms/{k}.json") for k in ("control_shuffled_labels", "control_color_histogram", "control_majority")}
     pub, wilds, pool = _j("published_baselines.json"), _j("wilds_data.json"), _j("model_pool.json")
     steps = sorted((PATHS.results / "steps").glob("*.json")) if (PATHS.results / "steps").exists() else []
@@ -110,18 +120,19 @@ def build_paper() -> str | None:
       "We pre-registered a ladder of interventions to improve it, each transferred from neighbouring work: intermediate-layer and centre-region features, "
       "head choice, rotation/flip test-time augmentation, out-of-fold label cleaning, multi-model fusion, and LoRA fine-tuning with LP-FT, stain augmentation and weight-space averaging. "
       "Every step is selected on slide-grouped cross-validation, gated on validation, and the test split stays sealed until the ladder is frozen. "
-      f"We reproduce the eva Hibou-L probe exactly: validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} over five seeds, against the published {hib['val_ba']:.3f}. "
+      f"We reproduce the eva Hibou-L probe exactly: validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} over {gate['n_seeds']} seeds, against the published {hib['val_ba']:.3f}. "
       f"Our native-transformers implementation matches Hibou's own code to a mean cosine of {parity['fp32_cpu']['mean_cosine']:.6f}. "
-      f"Under the cross-validation protocol the incumbent reaches {_ba(s0['oof']['seed_avg'])} out-of-fold BA. "
+      f"Under the cross-validation protocol the original probe reaches {_ba(s0['oof']['seed_avg'])} out-of-fold BA. "
       f"Controls behave as expected: shuffled labels give {ctrl['control_shuffled_labels']['oof']['seed_avg']['ba']:.3f} and a colour-histogram classifier gives {ctrl['control_color_histogram']['oof']['seed_avg']['ba']:.3f}. "
-      f"A pixel-hash audit found {dv['cross_duplicates_train_test']} test images identical to train images, all from PCam test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036` at identical coordinates, which indicates a duplicate scan. "
+      f"A pixel-hash audit found {dup['n']} test images identical to train images, all from PCam test slide `{dup['test_slide']}` and train slide `{dup['train_slides'][0]}`, "
+      f"{dup['same_coords']} of them at identical coordinates, which indicates a duplicate scan. "
       "We also find that the official Camelyon17-WILDS test hospital matches the colour signature of one of PCam's own source hospitals. "
-      "Both findings changed the pre-registered evaluation before any test data was touched."
+      "Both were found before any test data was used: the duplicate slide added a sensitivity analysis, and the out-of-hospital pool is being re-decided."
       + findings + (" The test split and WILDS remain sealed." if lrows else ""))
     a("")
     a("= Introduction")
     a(f"Sentinel lymph-node metastasis detection is a labour-intensive step in breast-cancer staging {c('camelyon16')}. "
-      f"PCam {c('veeling')} recasts it as 327,680 patches of 96×96 px, labelled positive if the centre 32×32 px contains tumour. "
+      f"PCam {c('veeling', 'pcam')} recasts it as 327,680 patches of 96×96 px, labelled positive if the centre 32×32 px contains at least one tumour pixel. "
       f"Self-supervised pathology foundation models (FMs) trained with DINOv2 {c('dinov2')} now dominate PCam under frozen-probe protocols {c('eva', 'midnight')}. "
       f"Many adaptation techniques are each reported to help elsewhere: LoRA {c('lora', 'lee2024')}, LP-FT {c('lpft')}, WiSE-FT and model soups {c('wise', 'soups')}, "
       f"multi-layer probing {c('multilayer')}, ensembles {c('caruana')}, label-noise cleaning {c('panda')}, and stain augmentation {c('tellez')}. "
@@ -131,23 +142,25 @@ def build_paper() -> str | None:
     a("")
     a("= Methods")
     a("== Data and audit")
-    a(f"We use the official PCam splits from Zenodo record 2546921, md5-verified against the Zenodo API. Note that the GitHub README lists the validation and test image checksums swapped. "
+    a(f"We use the official PCam splits from Zenodo record 2546921, md5-verified against the Zenodo API. Note that the GitHub README {c('pcam')} lists the validation and test checksums swapped for all three file pairs (images, labels and meta CSVs). "
       f"Train has {dv['train_n']:,} patches from {dv['train_slides']} slides ({dv['train_tumour_slides']} with tumour), validation {dv['valid_n']:,} / {dv['valid_slides']} ({dv['valid_tumour_slides']}), "
       f"and test {dv['test_n']:,} / {dv['test_slides']} ({dv['test_tumour_slides']}). "
       f"The audit checks that no slide is shared between splits ({dv['shared_slides_train_test']} train–test, {dv['shared_slides_train_valid']} train–valid, {dv['shared_slides_valid_test']} valid–test), "
-      "that the labels agree with the meta CSVs, and that there are no exact pixel duplicates within or across splits (BLAKE2b hashes).")
+      "that the labels agree with the meta CSVs, and it counts exact pixel duplicates within and across splits (BLAKE2b hashes), with the slide coordinates of every cross-split copy.")
     a("== Model, access and licences")
-    a(f"Hibou-L is a DINOv2 ViT-L/14 with 4 registers {c('registers')} and 304M parameters, pretrained on private HistAI slides {c('hibou')}. "
+    a(f"Hibou-L is a ViT-L/14 with 4 registers {c('registers')} and a SwiGLU MLP block, with 304M parameters {c('hiboucard')}, pretrained with DINOv2 "
+      f"on 1.2B patches from about 1.14M private slides {c('hibou')}. "
       "It ships custom code; we load its pinned weights into transformers' native `Dinov2WithRegistersModel` (no remote code) and test equivalence against kaiko-eva running the remote code. "
       f"The candidate pool is every model whose Hugging Face licence the author accepted, frozen before any embedding: {sum(pool.values())} of {len(pool)} registry entries. "
       "Derivatives of non-redistributable models (Virchow2, Phikon) are never published; only aggregate metrics are.")
     a("== Features, heads and protocol")
     a("Patches are resized 96→224 px (bilinear), scaled and normalised with Hibou's eva mean and std. Embeddings are computed in bf16 and cached in fp16. "
-      "The *eva-exact* probe is `nn.Linear` with BCE loss, AdamW at lr 3e-4, batch 256, at most 12,500 steps, early stopping on validation BA (patience 3), and five seeds. "
+      f"The *eva-exact* probe is `nn.Linear` with BCE loss, AdamW at lr {ep['lr']:g}, batch {ep['batch_size']}, at most {ep['max_steps']:,} steps, "
+      f"early stopping on validation BA (patience {ep['patience']}), and {gate['n_seeds']} seeds {c('eva')}. "
       "Ladder decisions use a *CV protocol*: five slide-grouped folds of train, stratified by slide tumour status, out-of-fold (OOF) predictions with fixed 12,500 steps, and full-train refits scored on validation.")
     a("== Statistics")
     a(f"Every arm's prediction is its seed-averaged probability; BA uses a fixed 0.5 threshold. "
-      f"95% CIs come from a stratified slide-cluster bootstrap (tumour and normal slides resampled separately; 10,000 replicates for BA; BCa with a leave-one-slide-out jackknife {c('efron')}). "
+      f"95% CIs come from a stratified slide-cluster bootstrap {c('fieldwelsh')} (tumour and normal slides resampled separately; 10,000 replicates for BA; BCa with a leave-one-slide-out jackknife {c('efron')}). "
       f"Paired differences use a per-slide sign-flip randomisation test on the exact decomposition ΔBA = Σ#sub[s] [ΔTP#sub[s]/2P + ΔTN#sub[s]/2N], with Holm correction {c('holm')}. "
       "The test split and WILDS are sealed: reading them requires a git tag whose committed hash matches the frozen ladder configuration.")
     a("")
@@ -155,21 +168,25 @@ def build_paper() -> str | None:
     a("")
     a("= Results")
     a("== Data audit")
-    a(f"No slide is shared between splits. There are many exact duplicates *within* splits (train {dv['train_within_split_duplicates']:,}, valid {dv['valid_within_split_duplicates']:,}, test {dv['test_within_split_duplicates']:,}), "
-      "consistent with PCam's probabilistic sampling. Slide-grouped folds keep them inside one fold. "
-      f"Across splits, {dv['cross_duplicates_train_test']} test images are pixel-identical to train images. All of them come from `camelyon16_test_049` and `camelyon16_train_tumor_036`, at identical slide coordinates. "
-      "Secondary sources (the eva documentation) report that a duplicate CAMELYON16 test slide was removed from the official release; PCam's test split still contains test_049. "
-      "With the test split still sealed, we added a pre-registered sensitivity analysis that excludes this slide.")
+    a(f"No slide is shared between splits. There are many exact duplicates *within* splits (extra copies: train {dv['train_within_split_duplicates']:,}, "
+      f"valid {dv['valid_within_split_duplicates']:,}, test {dv['test_within_split_duplicates']:,}; none with conflicting labels: "
+      f"{sum(dv[f'{s}_duplicate_groups_label_conflict'] for s in splits)} groups), consistent with PCam's probabilistic sampling {c('pcam', 'hcd')}. "
+      + (f"Only {multi} duplicate groups span two slides and can straddle CV folds; slide-grouped folds keep every other group inside one fold. " if multi else
+         "No group spans two slides, so slide-grouped folds keep every copy inside one fold. ")
+      + (f"Across splits, {dup['n']} test images are pixel-identical to train images. All of them come from `{dup['test_slide']}` and `{dup['train_slides'][0]}`, "
+         f"{dup['same_coords']} of {dup['n']} at identical slide coordinates. The official CAMELYON16 README lists `test_049` as a duplicate slide that was removed "
+         f"from the data set {c('c16readme')}; PCam's test split still contains it ({dup['test_slide_n']:,} patches). With the test split still sealed, "
+         "we added a sensitivity analysis that excludes this slide, through the deviations log of the pre-registration." if dup else ""))
     a("== Exact reproduction of the published probe (H2)")
-    a(f"Against eva running Hibou's remote code on 256 validation patches, our fp32 embeddings agree to a mean cosine of {parity['fp32_cpu']['mean_cosine']:.6f} (max |Δ| {parity['fp32_cpu']['max_abs_diff']:.1e}). "
+    a(f"Against eva running Hibou's remote code on {parity['n']} validation patches, our fp32 embeddings agree to a mean cosine of {parity['fp32_cpu']['mean_cosine']:.6f} (max |Δ| {parity['fp32_cpu']['max_abs_diff']:.1e}). "
       f"In bf16 the mean cosine is {parity['bf16_gpu']['mean_cosine']:.4f}, but the minimum is {parity['bf16_gpu']['min_cosine']:.4f}: bf16 noticeably perturbs a few patches. "
-      f"The eva-exact probe reaches validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} (five seeds), against the published {hib['val_ba']:.3f}. "
-      f"This passes the pre-registered ±0.010 gate; the seed-averaged prediction gives {_ba(eva['valid']['seed_avg'])}.")
+      f"The eva-exact probe reaches validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} ({gate['n_seeds']} seeds), against the published {hib['val_ba']:.3f}. "
+      f"This passes the pre-registered ±{gate['tolerance']:.3f} gate; the seed-averaged prediction gives {_ba(eva['valid']['seed_avg'])}.")
     a("== Incumbent under the CV protocol and controls")
     rows = [["Reproduced Hibou-L probe, eva-exact", "—", _ba(eva["valid"]["seed_avg"])],
             ["Hibou-L CLS + linear, CV protocol (S0)", _ba(s0["oof"]["seed_avg"]), _ba(s0["valid"]["seed_avg"])]]
     labels = {"control_color_histogram": "Colour histogram + logistic regression", "control_shuffled_labels": "Hibou-L, shuffled train labels",
-              "control_majority": "Majority class"}
+              "control_majority": "Constant 'tumour' prediction"}
     for k, r in ctrl.items():
         rows.append([labels[k], _ba(r["oof"]["seed_avg"]) if "oof" in r else "—", _ba(r["valid"]["seed_avg"])])
     for k, r in models.items():  # same architecture as Hibou-L, other weights (release 3)
@@ -180,29 +197,30 @@ def build_paper() -> str | None:
     a(f"The validation CI is {w_val / w_oof:.1f}× wider than the OOF CI, because validation has only {dv['valid_slides']} slides ({dv['valid_tumour_slides']} with tumour). "
       "This is why validation serves only as a no-harm gate and selection uses train CV. "
       "Shuffled labels land at chance, so there is no label-leakage path. "
-      "Colour alone is strongly informative (tumour is hyperchromatic) but far below the foundation model."
-      + (" The two same-architecture controls separate what the weights contribute: natural-image DINOv2 weights recover part of the gap to Hibou-L, "
-         "and random weights score close to the colour histogram." if all(models.values()) else ""))
+      "Colour alone is strongly informative but far below the foundation model."
+      + (" The two controls of Hibou-L's size separate what the weights contribute: natural-image DINOv2 weights (same size, but a standard MLP block) "
+         "recover part of the gap to Hibou-L, and random weights in Hibou-L's exact architecture score close to the colour histogram." if all(models.values()) else ""))
     a("#figure(image(\"../figures/stage_a.png\", width: 92%), caption: [Reproduced Hibou-L probe and controls. Dots are seed-averaged BA; bars are 95% stratified slide-bootstrap BCa CIs.])")
     a("== No-training baselines")
     lit = pub["literature"]
-    a(f"@pub shows the eva leaderboard {c('eva')} (pinned commit) with our reproduction. Literature results on the official test split, which use different metrics and protocols and are context only: "
+    a(f"@pub shows the eva leaderboard {c('eva')} (pinned commit) with our reproduction. Literature results on PCam, which use different metrics and protocols and are context only: "
       + "; ".join(f"{r['model']}: {r['metric']} {r['value']:.4f} ({r['where']})" for r in lit) + ".")
     rows_e = pub["eva_leaderboard"]["rows"]
     val_rank = 1 + sum(r["val_ba"] > hib["val_ba"] for r in rows_e)
     test_rank = 1 + sum(r["test_ba"] > hib["test_ba"] for r in rows_e)
-    a(f"#figure(image(\"../figures/published_baselines.png\", width: 88%), caption: [Published frozen-probe PCam BA (eva, validation and test) and our reproduced Hibou-L validation BA. Among {len(rows_e)} leaderboard models, Hibou-L ranks {val_rank} on validation and {test_rank} on test.]) <pub>")
+    a(f"#figure(image(\"../figures/published_baselines.png\", width: 88%), caption: [Published frozen-probe PCam BA (eva, validation and test) and our reproduced Hibou-L validation BA. Among {len(rows_e)} leaderboard models, Hibou-L ranks {val_rank} on validation and {test_rank} on test. The ±SD of our reproduction is smaller than its marker; * marks models outside this study's model pool.]) <pub>")
     if wilds:
         hc = wilds["hospital_check"]
         a("== Camelyon17-WILDS preparation")
-        a(f"The official WILDS download failed (expired TLS certificate), so we use a Hugging Face mirror. Its split sizes match the WILDS paper {c('wilds')}. "
+        a(f"The official WILDS download failed (expired TLS certificate), so we use a Hugging Face mirror (`wltjr1007/Camelyon17-WILDS`, revision `{MIRROR_REVISION[:7]}`). Its split sizes match the WILDS paper {c('wilds')}. "
           f"We fixed a subsample of ≤1,000 patches per slide ({sum(wilds['subsample_per_center'].values()):,} patches from {wilds['n_slides']} slides). "
           f"PCam train slides grouped by the assumed Camelyon16 numbering (RUMC vs. UMCU) differ in colour (L1 {hc['pcam_assumed_hospital_split_l1']:.2f}) far more than a random split ({hc['pcam_random_slide_split_l1']:.2f}). "
           f"WILDS centre 2, the official WILDS *test* hospital, is closest to UMCU ({hc['l1_distance_to_pcam_hospital']['2']['UMCU']:.2f} vs. {hc['l1_distance_to_pcam_hospital']['2']['RUMC']:.2f}). "
-          f"It is therefore a Camelyon16 source hospital and not out-of-distribution for PCam-trained models. "
-          f"The pre-registered primary OOD pool is centres 0, 1 and 4, reported as CWZ, RST and LPON {c('seg2404')}. "
-          f"This mapping is uncertain: centres 0, 3 and 4 share one scanner {c('tomar')}, and the per-hospital scanners in {c('camelyon')} then place RUMC, a Camelyon16 source hospital, among centres 0, 3 and 4. "
-          "The pool is therefore re-examined and logged before WILDS is unsealed.")
+          "It is therefore most likely UMCU, a Camelyon16 source hospital, and not out-of-distribution for PCam-trained models. "
+          f"The planned primary OOD pool is centres 0, 1 and 4, read as CWZ, RST and LPON from {c('seg2404')}; the pre-registration only excludes RUMC and UMCU, "
+          "and the mapping is an open issue in its deviations log. "
+          f"Scanner metadata contradict that reading: centres 0, 3 and 4 share one scanner {c('tomar')}, and RUMC, CWZ and RST slides were scanned on one 3DHistech scanner {c('camelyon')}, "
+          "which places RUMC, a Camelyon16 source hospital, among centres 0, 3 and 4. The pool is therefore re-decided and logged before WILDS is unsealed.")
     a("")
     if lrows:
         a("== Improvement ladder")
@@ -239,28 +257,32 @@ def build_paper() -> str | None:
             a("")
     a("= Related work")
     a(f"*Frozen-probe benchmarks.* Pathology FMs are ranked on PCam with frozen backbones and linear probes {c('eva', 'midnight')}; "
-      f"Hibou-L {c('hibou')} leads the eva leaderboard, ahead of models trained on far larger or different cohorts {c('gigapath', 'virchow2')}. "
+      f"Hibou-L {c('hibou')} has the highest PCam test BA on the eva leaderboard ({hib['test_ba']:.3f}; rank {val_rank} on validation), ahead of models "
+      f"trained on a larger cohort (Virchow2, 3.1M slides {c('virchow2')}) or a different one (Prov-GigaPath, 171k Providence slides {c('gigapath')}). "
       f"*Adapting FMs.* A benchmark of adaptation strategies reports LoRA above both linear probing and full fine-tuning for UNI on PCam {c('lee2024')}; "
       f"LP-FT {c('lpft')} and weight-space interpolation {c('wise', 'soups')} were proposed to keep pretrained features robust under shift. "
-      f"*Data-centric fixes.* Out-of-fold label cleaning won PANDA {c('panda')}, SelfClean estimates PCam's label-error rate {c('selfclean')}, "
+      f"*Data-centric fixes.* Out-of-fold label cleaning was part of the PANDA-winning solution {c('panda')}, SelfClean estimates PCam's label-error rate {c('selfclean')}, "
       f"TTA was part of strong ensembles on Kaggle's PCam data {c('hcd')}; rotation invariance varies widely across pathology FMs, and Hibou-L, trained with rotations and flips {c('hibou')}, was the most invariant by cosine distance {c('rotinv')}. "
-      f"*Representations.* Multi-layer and attentive probes improve frozen natural-image ViTs {c('multilayer', 'dinov2')}. "
+      f"*Representations.* Multi-layer and attentive probes improve frozen natural-image ViTs on average, including on PCam {c('multilayer')}; "
+      f"DINOv2's linear evaluation searches over the last 1 or 4 layers {c('dinov2')}. "
       "This study tests these ideas on the strongest frozen model under one pre-registered, slide-clustered protocol.")
     a("")
     a("= Discussion")
     worse = [r for r in frozen_changes(lrows) if r["cmp"]["valid"]["ci_ba"][1] < 0]
+    fr = list((_j("arms/S3b_oof_label_cleaning.json") or {}).get("removed_fraction_per_fold", {}).values())  # S3b removal per fold
     a("*Why frozen-feature tricks did not transfer.* Hibou-L starts near the frozen-probe ceiling, its pretraining already included rotations and flips, "
       "and the reported multi-layer gains were measured on natural-image ViTs. No frozen-feature change improved validation BA beyond its confidence interval"
       + (f"; {len(worse)} have validation bootstrap CIs below zero ("
          + ", ".join(f"`{r['arm']}` p = {r['cmp']['valid']['p_signflip']:.2g}" for r in worse)
          + "; unadjusted sign-flip p, and one-seed arms include the seed term in Limitations)" if worse else "") + ". "
-      "Label cleaning was adopted on cross-validation, but it removed about ten times more patches than SelfClean's label-error estimate; "
-      "if that estimate holds, it also drops hard, correctly labelled patches.")
+      + (f"Label cleaning was adopted on cross-validation, but it removed {min(fr) / SELFCLEAN_RATE:.0f}–{max(fr) / SELFCLEAN_RATE:.0f} times more patches "
+         f"per fold than SelfClean's PCam label-error estimate ({SELFCLEAN_PCAM_LABEL_ERRORS} images, {100 * SELFCLEAN_RATE:.1f}%) {c('selfclean')}; "
+         "if that estimate holds, it also drops hard, correctly labelled patches." if fr else ""))
     a("*Why LoRA helped.* The H4 control targets the augmentation: a frozen head trained on the same augmented images is no better than the original, "
       "while LoRA is clearly better. This suggests that the gain comes from adapting the backbone's attention layers rather than from the augmentation, "
       "although the two arms also differ in optimiser and schedule, and the stain augmentation is strong (Limitations), which may handicap a frozen head scored on clean images more than LoRA. Shrinking the LoRA update (WiSE) lowered validation BA, more so the further it was shrunk; "
       "WiSE-FT targets robustness under distribution shift, which only the sealed WILDS evaluation can test.")
-    a("*Strength of the evidence.* All results are on cross-validation and the 54-slide validation split, with one seed per arm and one LoRA run. "
+    a(f"*Strength of the evidence.* All results are on cross-validation and the {dv['valid_slides']}-slide validation split, with one seed per arm from S1 f on and one LoRA run. "
       "They are hedged findings until the sealed test split and the out-of-hospital WILDS pool are scored once.")
     a("")
     a("= Planned and postponed analyses")
@@ -269,7 +291,7 @@ def build_paper() -> str | None:
     a("- S2 heads: linear, nested-CV logistic regression, MLP.")
     a(f"- S3 D4 TTA {c('hcd', 'rotinv')}; S3b OOF label cleaning {c('panda', 'selfclean')}.")
     a(f"- S4 fusion with other FMs {c('caruana', 'gigapath', 'virchow2')}.")
-    a(f"- S5 LoRA {c('lora', 'lee2024')} with LP-FT {c('lpft')}, HED augmentation {c('tellez')}, drop-path {c('peft')} and weight averaging (EMA) {c('polyak')}; S5b WiSE scaling and soups {c('wise', 'soups')}.")
+    a(f"- S5 LoRA {c('lora', 'lee2024')} with LP-FT {c('lpft')}, HED augmentation {c('tellez2018', 'tellez')}, drop-path {c('peft')} and weight averaging (EMA) {c('ema')}; S5b WiSE scaling and soups {c('wise', 'soups')}.")
     a("- S6 final combination.")
     a("Then the confirmatory tests on the sealed test split (H1, H1b, H4) and on WILDS (H6). "
       "By the author's decision, ablations that require training new models and the separate seed/hyperparameter sensitivity analysis are postponed to a later release.")
@@ -284,7 +306,7 @@ def build_paper() -> str | None:
     a("- Hibou-L and most candidates were pretrained on private data; their exclusion of Camelyon cannot be verified.")
     a("- bf16 embeddings deviate from fp32 for a few patches.")
     a("- Validation is small, so the no-harm gate has low power.")
-    a("- The WILDS centre-to-hospital mapping rests on one paper plus a colour-signature check, and the WILDS data come from a community mirror.")
+    a("- The WILDS centre-to-hospital mapping is unresolved (one paper's naming vs. scanner metadata; the colour check separates only UMCU), and the WILDS data come from a community mirror.")
     a("- Results so far are from cross-validation and validation only.")
     a("- From S1 f on, every arm uses one seed, and LoRA is a single run: seed variance of the ladder arms is unmeasured (sensitivity study postponed).")
     if so := seed_offset():
@@ -297,10 +319,14 @@ def build_paper() -> str | None:
     for f in review_findings():  # code-review findings on S5/H4; the code is fixed, the reported S5/H4 runs predate the fixes
         a(f"- {f}")
     a("")
+    adopted = [d["winner"] for d in decided if d["adopted"]]
+    clear = [w for w in adopted if (cw := _j(f"comparisons/{w}_vs_baseline.json")) and cw["valid"]["ci_ba"][0] > 0]
     a("= Conclusion")
-    a("The published Hibou-L PCam probe is reproducible to within 0.001 BA with an independent, remote-code-free implementation. "
-      "Two data issues that would have contaminated evaluation (a duplicated test slide and an in-distribution WILDS test hospital) were caught and handled before any test data was used."
-      + findings + " Whether the gains hold on the test split and across hospitals is the next, sealed, question.")
+    a(f"The published Hibou-L PCam probe is reproducible to within {abs(gate['valid_ba_seed_mean'] - gate['target']):.4f} BA with an independent, remote-code-free implementation. "
+      "Two data issues that would have contaminated evaluation (a duplicated test slide and an in-distribution WILDS test hospital) were found before any test data was used: "
+      "the first is handled by a sensitivity analysis, the second by re-deciding the out-of-hospital pool before WILDS is unsealed. "
+      + (f"Of the {len(adopted)} adopted changes, only {', '.join(f'`{w}`' for w in clear)} improves validation BA with a 95% CI that excludes zero. " if adopted and clear else "")
+      + "Whether the gains hold on the test split and across hospitals is the next, sealed, question.")
     a("")
     a("= References")
     for k, text, url in REFS:

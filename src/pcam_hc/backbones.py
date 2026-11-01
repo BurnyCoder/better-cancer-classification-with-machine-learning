@@ -81,7 +81,8 @@ REGISTRY = {
                      "Owkin non-commercial", False, "Non-commercial research use only; derivatives not redistributed."),
         BackboneSpec("phikon_v2", "owkin/phikon-v2", "2ae989a9c40cffaa27f0a6cb29cc94d1d6f9a5fd", "hf", *IMAGENET, 1024,
                      "Owkin non-commercial", False, "Non-commercial research use only; derivatives not redistributed."),
-        # Controls: same architecture as Hibou-L with natural-image weights, and random weights.
+        # Controls: DINOv2-L/14-reg4 with natural-image weights (same size as Hibou-L, but a standard MLP
+        # instead of Hibou-L's SwiGLU FFN), and Hibou-L's exact architecture config with random weights.
         BackboneSpec("dinov2_reg_l", "facebook/dinov2-with-registers-large", "e4c89a4e05589de9b3e188688a303d0f3c04d0f3",
                      "hf", *IMAGENET, 1024, "Apache-2.0", True, APACHE_NOTICE),
         BackboneSpec("random_vitl_reg4", "histai/hibou-L", "31a3b9fee16554c8552cb643d311733bce8faf7c", "random_reg",

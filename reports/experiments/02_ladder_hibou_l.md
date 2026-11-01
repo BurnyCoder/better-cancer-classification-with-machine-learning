@@ -24,6 +24,7 @@
 | S3 D4 TTA | `S3_no_tta_train64k` | 0.9517 [0.9391, 0.9615] | +0.01 pt [-0.03, +0.10] | 0.779 | 0.9352 | -0.15 pt |
 | S3b label cleaning | `S3b_oof_label_cleaning` | 0.9525 [0.9394, 0.9624] | +0.27 pt [+0.10, +0.50] | 0.0032 | 0.9368 | +0.01 pt |
 | S5 LoRA | `S5_lora` | 0.9798 [0.9654, 0.9883] | +0.87 pt [+0.50, +1.56] | 0.0001 | 0.9444 | +0.77 pt |
+| S5b weight space | `S5b_wise_0.25` | 0.9782 [0.9638, 0.9872] | +0.72 pt [+0.45, +1.22] | 0.0001 | 0.9388 | +0.21 pt |
 
 ## Step decisions (pre-registered rule)
 - **S1_representation**: best candidate `S1_f_best_plus_centre_view`. OOF test passed: False; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.

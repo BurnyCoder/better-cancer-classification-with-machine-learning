@@ -110,3 +110,6 @@ def build() -> None:
                 f"(5 seeds) vs. eva's published 0.939 ± 0.010 → **{'pass' if g['pass'] else 'FAIL'}**.")
         (TAB_DIR / "h2_gate.md").write_text(gate + "\n", encoding="utf-8")
         inject_readme(gate + "\n\n" + table, "RESULTS")
+    from pcam_hc.report_experiments import build_experiment_reports
+
+    build_experiment_reports()

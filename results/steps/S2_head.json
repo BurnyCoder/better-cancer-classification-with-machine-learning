@@ -1,0 +1,88 @@
+{
+  "step": "S2_head",
+  "incumbent": "S0_hibou_l_cls_linear",
+  "candidates": [
+    "S2_logreg",
+    "S2_mlp"
+  ],
+  "winner": "S2_logreg",
+  "oof_ba": {
+    "S2_logreg": 0.9509735107421875,
+    "S2_mlp": 0.9312248229980469
+  },
+  "incumbent_oof_ba": 0.9497642517089844,
+  "holm_p": {
+    "S2_logreg": 0.0235976402359764,
+    "S2_mlp": 0.00019998000199980003
+  },
+  "comparisons": {
+    "S2_logreg": {
+      "incumbent": "S0_hibou_l_cls_linear",
+      "challenger": "S2_logreg",
+      "oof": {
+        "delta_ba": 0.001209259033203125,
+        "ci_ba": [
+          0.00038345602539635457,
+          0.003058956714424781
+        ],
+        "delta_auroc": 0.0011748023389372975,
+        "ci_auroc": [
+          0.0006518170525769295,
+          0.0020918128345626752
+        ],
+        "p_signflip": 0.0235976402359764,
+        "n_slides": 216
+      },
+      "valid": {
+        "delta_ba": -0.00018455848666154573,
+        "ci_ba": [
+          -0.0014633507791478213,
+          0.001070958043660711
+        ],
+        "delta_auroc": 0.0003802760897656521,
+        "ci_auroc": [
+          -0.0010508631351761116,
+          0.0012193933498642665
+        ],
+        "p_signflip": 0.7577242275772422,
+        "n_slides": 54
+      }
+    },
+    "S2_mlp": {
+      "incumbent": "S0_hibou_l_cls_linear",
+      "challenger": "S2_mlp",
+      "oof": {
+        "delta_ba": -0.0185394287109375,
+        "ci_ba": [
+          -0.02813927312007076,
+          -0.011703546049224718
+        ],
+        "delta_auroc": -0.006756390968803316,
+        "ci_auroc": [
+          -0.010503868746607997,
+          -0.003916574374296026
+        ],
+        "p_signflip": 9.999000099990002e-05,
+        "n_slides": 216
+      },
+      "valid": {
+        "delta_ba": -0.03125446115528707,
+        "ci_ba": [
+          -0.06672827700223267,
+          -0.015534583647948883
+        ],
+        "delta_auroc": -0.008213145091971907,
+        "ci_auroc": [
+          -0.026255595716485204,
+          -0.0017924848785625298
+        ],
+        "p_signflip": 0.0011998800119988001,
+        "n_slides": 54
+      }
+    }
+  },
+  "oof_test_passed": true,
+  "valid_gate_passed": false,
+  "adopted": false,
+  "new_incumbent": "S0_hibou_l_cls_linear"
+}

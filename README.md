@@ -22,7 +22,7 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 - ✅ **Exact reproduction.** Our Hibou-L probe scores **0.9394 ± 0.0007** validation balanced accuracy (BA; 5 seeds), against the published **0.939** ([eva](https://github.com/kaiko-ai/eva)). Our remote-code-free model matches Hibou's own code to a cosine of 1.000000.
 - ✅ **Incumbent under cross-validation** over 216 training slides: OOF BA 0.950 (95% CI 0.937–0.960); validation 0.937 (95% CI 0.889–0.962).
 - ✅ **Controls behave as expected.** Shuffled labels: 0.520 (chance). Colour histogram only: 0.787 (95% CI 0.758–0.811). Colour carries signal, but far less than Hibou-L.
-- ⏳ **Improvement ladder (release 2, in progress).** 6 classifier(s) trained on frozen Hibou-L features so far. The best paired out-of-fold difference from the original is +0.12 pt BA (95% CI +0.04 to +0.31; `S2_logreg`). Steps decided: 1; adopted: 0.
+- ⏳ **Improvement ladder (release 2, in progress).** 7 classifier(s) trained on frozen Hibou-L features so far. The best paired out-of-fold difference from the original is +0.12 pt BA (95% CI +0.04 to +0.31; `S2_logreg`). Steps decided: 2; adopted: 0.
 - ⚠️ **Data leak found in PCam.** 33 distinct test images are pixel-identical to train images. All come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, at identical slide coordinates, which indicates a duplicate scan. CAMELYON16 notes list test_049 as a duplicate slide removed from the official release, but it is still in PCam. Every test result will also be reported without it (decided while test was sealed).
 - ⚠️ **Validation split is small.** It has 54 slides, 22 with tumour, so its CIs are 3.1× wider than the train CV ones. Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.
 - ⚠️ **The official Camelyon17-WILDS test hospital is not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 0.69 vs. 1.68 to RUMC). Our out-of-hospital check therefore uses CWZ, RST and LPON.
@@ -74,6 +74,7 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 | S1 representation | `S1_e_best_plus_centre_tokens` | 0.9496 [0.9361, 0.9599] | -0.01 pt [-0.14, +0.11] | 0.826 | 0.9352 | -0.15 pt |
 | S1 representation | `S1_f_best_plus_centre_view` | 0.9497 [0.9362, 0.9599] | -0.01 pt [-0.15, +0.17] | 0.944 | 0.9354 | -0.13 pt |
 | S2 head | `S2_logreg` | 0.9510 [0.9378, 0.9610] | +0.12 pt [+0.04, +0.31] | 0.0236 | 0.9365 | -0.02 pt |
+| S2 head | `S2_mlp` | 0.9312 [0.9112, 0.9462] | -1.85 pt [-2.81, -1.17] | 0.0001 | 0.9054 | -3.13 pt |
 
 ![Ladder](reports/figures/ladder_deltas.png)
 <!-- RESULTS:END -->

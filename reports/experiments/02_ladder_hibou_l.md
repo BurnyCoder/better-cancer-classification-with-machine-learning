@@ -19,9 +19,11 @@
 | S1 representation | `S1_e_best_plus_centre_tokens` | 0.9496 [0.9361, 0.9599] | -0.01 pt [-0.14, +0.11] | 0.826 | 0.9352 | -0.15 pt |
 | S1 representation | `S1_f_best_plus_centre_view` | 0.9497 [0.9362, 0.9599] | -0.01 pt [-0.15, +0.17] | 0.944 | 0.9354 | -0.13 pt |
 | S2 head | `S2_logreg` | 0.9510 [0.9378, 0.9610] | +0.12 pt [+0.04, +0.31] | 0.0236 | 0.9365 | -0.02 pt |
+| S2 head | `S2_mlp` | 0.9312 [0.9112, 0.9462] | -1.85 pt [-2.81, -1.17] | 0.0001 | 0.9054 | -3.13 pt |
 
 ## Step decisions (pre-registered rule)
 - **S1_representation**: best candidate `S1_f_best_plus_centre_view`. OOF test passed: False; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.
+- **S2_head**: best candidate `S2_logreg`. OOF test passed: True; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.
 
 ## Notes
 - **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.

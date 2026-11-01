@@ -247,6 +247,35 @@ def site_data(records: dict) -> None:
             (site / fig).write_bytes((FIG_DIR / fig).read_bytes())
 
 
+def best_model_block() -> str | None:
+    """README top: the best improved Hibou-L pipeline so far vs. the original probe, every number from results/."""
+    from pcam_hc.publish import LORA_ARM, REPO_ID
+
+    get = lambda f: json.loads((PATHS.results / f).read_text()) if (PATHS.results / f).exists() else None  # noqa: E731
+    lad, base = get("ladder.json"), "S0_hibou_l_cls_linear"
+    best = lad and (lad.get("hibou_incumbent") or lad.get("incumbent"))
+    b, s0, c = get(f"arms/{best}.json"), get(f"arms/{base}.json"), get(f"comparisons/{best}_vs_baseline.json")
+    if not (best and best != base and b and s0 and c):
+        return None
+    pt = lambda x: f"{100 * x['delta_ba']:+.2f} pt [{100 * x['ci_ba'][0]:+.2f}, {100 * x['ci_ba'][1]:+.2f}]"  # noqa: E731
+    v, v0, dv = b["valid"]["seed_avg"], s0["valid"]["seed_avg"], get("data_verification.json")
+    name = "Hibou-L fine-tuned with LoRA" if b.get("head") == "lora" else b.get("description", best)
+    lines = [f"### 🏆 Best improved model so far: {name} (`{best}`)",
+             "", f"| | Original Hibou-L probe | `{best}` |", "|---|---|---|",
+             f"| Validation balanced accuracy [95% CI] | {fmt_ci(v0)} | **{fmt_ci(v)}** |",
+             f"| Validation AUROC | {v0['auroc']:.4f} | **{v['auroc']:.4f}** |", "",
+             f"- **Gain over the original:** {pt(c['valid'])} balanced accuracy on the {dv['valid_slides'] if dv else ''} validation slides, "
+             f"paired per-slide sign-flip p = {c['valid']['p_signflip']:.2g}."]
+    if h4 := get(f"comparisons/{best}_vs_H4_aug_control.json"):
+        lines.append(f"- **Augmentation-matched control:** it beats a frozen Hibou-L head trained on the same augmented images by {pt(h4['valid'])}, "
+                     "which suggests the gain comes from adapting the network rather than from the augmentation alone.")
+    lines.append(f"- **Recipe:** {b['description']}."
+                 + (f" Weights: [Hugging Face](https://huggingface.co/{REPO_ID}/tree/main/lora/{LORA_ARM})." if best == LORA_ARM else ""))
+    lines.append("- **Caveats:** validation only (the test split and the other-hospital check are still sealed); a single training run; "
+                 "trained before the code-review fixes listed in the [ladder report](reports/experiments/02_ladder_hibou_l.md).")
+    return "\n".join(lines)
+
+
 def highlights() -> str | None:
     """README highlights (positive and negative findings), every number read from results/."""
     get = lambda f: json.loads((PATHS.results / f).read_text()) if (PATHS.results / f).exists() else None  # noqa: E731
@@ -323,6 +352,8 @@ def build() -> None:
     hl = highlights()
     if hl:
         inject_readme(hl, "HIGHLIGHTS")
+    if top := best_model_block():
+        inject_readme(top, "BEST")
     from pcam_hc.paper import compile_paper
     from pcam_hc.report_experiments import build_experiment_reports
 

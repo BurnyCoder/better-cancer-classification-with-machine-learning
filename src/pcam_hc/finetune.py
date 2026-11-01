@@ -151,6 +151,7 @@ class ConvNeXtClassifier(nn.Module):
         import timm
 
         self.net = timm.create_model(name, pretrained=True, num_classes=1, drop_path_rate=drop_path)
+        self.net.set_grad_checkpointing(True)  # full fine-tuning at 224 px must fit next to the desktop in 8 GB
         cfg = self.net.pretrained_cfg
         self.mean, self.std = tuple(cfg["mean"]), tuple(cfg["std"])
 

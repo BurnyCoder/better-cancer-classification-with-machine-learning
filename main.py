@@ -190,6 +190,13 @@ def cmd_publish(args):
     print(upload(args.arms or publishable_arms()))
 
 
+def cmd_published(args):
+    """Record no-training baselines: pinned eva leaderboard rows + literature PCam test results."""
+    from pcam_hc.published import fetch
+
+    print(json.dumps(fetch()["eva_leaderboard"]["rows"][:8], indent=1))
+
+
 def cmd_report(args):
     from pcam_hc.report import build
 
@@ -197,7 +204,7 @@ def cmd_report(args):
 
 
 PHASES = {"download": cmd_download, "verify": cmd_verify, "access": cmd_access, "embed": cmd_embed,
-          "embed-tta": cmd_embed_tta, "wilds-prepare": cmd_wilds_prepare, "publish": cmd_publish,
+          "embed-tta": cmd_embed_tta, "wilds-prepare": cmd_wilds_prepare, "publish": cmd_publish, "published": cmd_published,
           "parity": cmd_parity, "stage-a": cmd_stage_a, "stage-b": cmd_stage_b, "stage-c": cmd_stage_c, "report": cmd_report}
 
 

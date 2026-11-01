@@ -53,6 +53,7 @@
   <div class="links">
     <a href="https://github.com/BurnyCoder/better-cancer-classification-with-machine-learning">Code &amp; reports</a>
     <a href="https://github.com/BurnyCoder/better-cancer-classification-with-machine-learning/blob/main/reports/preregistration.md">Pre-registration</a>
+    <a href="https://github.com/BurnyCoder/better-cancer-classification-with-machine-learning/blob/main/reports/paper/paper.pdf">Paper (PDF)</a>
     <a href="https://huggingface.co/collections/BurnyCoder/pcam-hill-climbing-of-hibou-l-6ae69845aceb3bbab4777782">Hugging Face collection</a>
   </div>
   <div class="tiles" id="tiles"></div>
@@ -63,7 +64,12 @@
     validation no-harm gate.</p>
   <div id="ladder" class="chart"></div>
 
-  <h2>Backbones: frozen CLS + eva linear probe (train OOF)</h2>
+  <h2>No-training baselines: published eva leaderboard</h2>
+  <p class="note">Frozen backbone + linear probe, balanced accuracy on PCam validation and test (kaiko eva, pinned commit),
+    with this study's reproduced Hibou-L validation score. Context only; not protocol-matched to later ladder steps.</p>
+  <div id="published" class="chart"></div>
+
+  <h2>Backbones in this study: frozen CLS + eva linear probe (train OOF)</h2>
   <div id="scan" class="chart"></div>
 
   <h2 id="test-h">Sealed test and out-of-distribution hospitals</h2>
@@ -121,6 +127,21 @@ fetch("data/results.json").then(r => r.json()).then(d => {
     dotTrace(adoptedRows, css("--s1"), "adopted")], layoutBase(Math.max(320, 30 * (rows.length + adoptedRows.length) + 90)),
     {displayModeBar: false, responsive: true});
   else document.getElementById("ladder").append(el("p", "Ladder steps will appear here as they finish."));
+
+  // Published baselines
+  if (d.published && d.published.length) {
+    const pubRows = [...d.published].sort((a, b) => a.test_ba - b.test_ba);
+    const lab = r => r.model + (r.accessible_here ? "" : " *");
+    const tr = (key, name, color, open) => ({type: "scatter", mode: "markers", name, x: pubRows.map(r => r[key]), y: pubRows.map(lab),
+      marker: {size: 9, color: open ? css("--surface") : color, line: {color, width: 2}},
+      hovertemplate: "<b>%{x:.3f}</b><br>%{y}<extra>" + name + "</extra>"});
+    const traces = [tr("val_ba", "eva published, valid", css("--s2"), true), tr("test_ba", "eva published, test", css("--s1"), false)];
+    if (d.gate) traces.push({type: "scatter", mode: "markers", name: "this study, reproduced valid", x: [d.gate.valid_ba_seed_mean],
+      y: ["Hibou-L"], marker: {size: 11, symbol: "diamond", color: css("--ink")},
+      error_x: {type: "data", array: [d.gate.valid_ba_seed_sd], color: css("--ink")},
+      hovertemplate: "<b>%{x:.4f}</b> ± " + d.gate.valid_ba_seed_sd.toFixed(4) + "<extra>reproduced</extra>"});
+    Plotly.newPlot("published", traces, layoutBase(30 * pubRows.length + 110), {displayModeBar: false, responsive: true});
+  }
 
   // Backbone scan
   const scan = Object.entries(d.arms).filter(([n]) => n.startsWith("S0_scan_") || n === "S0_hibou_l_cls_linear")

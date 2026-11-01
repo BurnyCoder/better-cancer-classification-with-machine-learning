@@ -24,6 +24,7 @@ dependencies = [
     "torchvision>=0.26.0",
     "tqdm>=4.70.1",
     "transformers>=5.22.1",
+    "typst>=0.15.0",
 ]
 
 [project.scripts]

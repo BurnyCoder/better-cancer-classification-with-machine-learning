@@ -50,6 +50,7 @@ Classification heads and LoRA adapters trained on top of the **Hibou-L** patholo
 They come from the pre-registered study at
 https://github.com/BurnyCoder/better-cancer-classification-with-machine-learning, where you will find the
 pre-registration, the code to rebuild every artifact, and all results with slide-level confidence intervals.
+The current paper release is included as `paper.pdf`.
 
 **Research use only. Not a medical device. Not for clinical decision-making.**
 
@@ -87,6 +88,9 @@ def upload(arm_names: list[str], token=None) -> str:
         (staging / "arms" / f"{rec['name']}.json").write_text(json.dumps(rec, indent=2))
     (staging / "README.md").write_text(model_card(records), encoding="utf-8")
     (staging / "LICENSE").write_text((PROJECT_ROOT / "LICENSE").read_text())
+    paper = PROJECT_ROOT / "reports" / "paper" / "paper.pdf"
+    if paper.exists():  # the current release of the paper travels with the artifacts
+        (staging / "paper.pdf").write_bytes(paper.read_bytes())
     api.upload_folder(folder_path=str(staging), repo_id=REPO_ID, commit_message="Update card and arm records")
     from pcam_hc.experiments import HEAD_DIR
 

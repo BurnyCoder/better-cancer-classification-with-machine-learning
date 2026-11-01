@@ -263,17 +263,10 @@ def highlights() -> str | None:
         f"{(s0['valid']['seed_avg']['ci_ba'][1] - s0['valid']['seed_avg']['ci_ba'][0]) / (s0['oof']['seed_avg']['ci_ba'][1] - s0['oof']['seed_avg']['ci_ba'][0]):.1f}× wider than the train CV ones. "
         "Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.",
     ]
-    from pcam_hc.report_experiments import ladder_rows
+    from pcam_hc.report_experiments import ladder_findings
 
-    lrows = ladder_rows()
-    if lrows:
-        best = max(lrows, key=lambda r: r["cmp"]["oof"]["delta_ba"])
-        d = best["cmp"]["oof"]
-        steps = [json.loads(p.read_text()) for p in (PATHS.results / "steps").glob("*.json")] if (PATHS.results / "steps").exists() else []
-        out.insert(3, f"- ⏳ **Improvement ladder (release 2, in progress).** {len(lrows)} classifier(s) trained on frozen Hibou-L features so far. "
-                      f"The best paired out-of-fold difference from the original is {100 * d['delta_ba']:+.2f} pt BA "
-                      f"(95% CI {100 * d['ci_ba'][0]:+.2f} to {100 * d['ci_ba'][1]:+.2f}; `{best['arm']}`). "
-                      f"Steps decided: {len(steps)}; adopted: {sum(s['adopted'] for s in steps)}.")
+    if findings := ladder_findings():  # release 2+ headline results (shared with the paper's abstract)
+        out.insert(3, "- 📈 **Improvement ladder and controls** (validation and cross-validation; test still sealed): " + " ".join(findings))
     if wl:
         d = wl["hospital_check"]["l1_distance_to_pcam_hospital"]["2"]
         out.append(f"- ⚠️ **The official Camelyon17-WILDS test hospital is not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 {d['UMCU']:.2f} vs. {d['RUMC']:.2f} to RUMC). "

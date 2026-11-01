@@ -38,10 +38,13 @@ Every later step is compared with this arm: Hibou-L CLS with the eva linear head
 - `control_shuffled_labels`: OOF BA 0.5204 [0.4935, 0.5457]; valid BA 0.4731 [0.4280, 0.5212]. Hibou-L CLS, linear head trained on permuted train labels.
 - `control_color_histogram`: OOF BA 0.7870 [0.7580, 0.8106]; valid BA 0.8098 [0.7530, 0.8472]. 96-bin RGB histogram + logistic regression (stain shortcut check).
 - `control_majority`: OOF BA —; valid BA 0.5000 [0.5000, 0.5000]. constant prediction.
+- `S0_scan_dinov2_reg_l` (DINOv2-L/14-reg4 with natural-image weights: Hibou-L's architecture without pathology pretraining): OOF BA 0.8797 [0.8622, 0.8940]; valid BA 0.8682 [0.8103, 0.9023]. Same CLS + eva linear head, CV protocol, 1 seed.
+- `S0_scan_random_vitl_reg4` (ViT-L/14-reg4 with random weights, seed 0: the same architecture without any pretraining): OOF BA 0.7973 [0.7692, 0.8201]; valid BA 0.7902 [0.7232, 0.8334]. Same CLS + eva linear head, CV protocol, 1 seed.
 
 **Interpretation:**
 - Shuffled labels land at chance, so no leakage path lets labels reach the predictions.
 - A 96-bin colour histogram already separates tumour from normal far above chance, because tumour is more hyperchromatic. It stays far below the foundation model.
+- **Same architecture, different weights** (unpaired point estimates, OOF BA): pathology pretraining (Hibou-L) is 7.0 pt above natural-image pretraining (DINOv2-L), which is 8.2 pt above random weights. Random-weight features score close to the colour histogram (0.797 vs. 0.787), consistent with them carrying mostly colour and texture statistics (not tested directly).
 
 ## Camelyon17-WILDS preparation (`results/wilds_data.json`; no predictions yet)
 - **Source:** the official CodaLab download failed on 2026-11-01 because its TLS certificate had expired. The data come from the Hugging Face parquet mirror `wltjr1007/Camelyon17-WILDS`.

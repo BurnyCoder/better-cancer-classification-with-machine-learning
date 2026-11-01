@@ -77,11 +77,16 @@ def build_paper() -> str | None:
     ctrl = {k: _j(f"arms/{k}.json") for k in ("control_shuffled_labels", "control_color_histogram", "control_majority")}
     pub, wilds, pool = _j("published_baselines.json"), _j("wilds_data.json"), _j("model_pool.json")
     steps = sorted((PATHS.results / "steps").glob("*.json")) if (PATHS.results / "steps").exists() else []
-    from pcam_hc.report_experiments import ladder_rows
+    from pcam_hc.report_experiments import CONTROL_MODELS, _pt, ladder_findings, ladder_rows
 
     lrows = ladder_rows()
     decided = [json.loads(p.read_text()) for p in sorted(steps, key=lambda p: p.stat().st_mtime)]
-    release = "Release 2 (in progress): Hibou-L improvement ladder" if lrows else "Release 1: exact reproduction, controls and a data audit"
+    models = {n: _j(f"arms/{n}.json") for n in CONTROL_MODELS}
+    h4c = _j("comparisons/S5_lora_vs_H4_aug_control.json")
+    release = ("Release 3: improvement ladder and control models" if h4c else
+               "Release 2: Hibou-L improvement ladder" if lrows else "Release 1: exact reproduction, controls and a data audit")
+    pt = _pt
+    findings = "".join(" " + f for f in ladder_findings())  # release 2+ results, from results/ (`raw` names are Typst-safe)
     hib = next(r for r in pub["eva_leaderboard"]["rows"] if r["model"] == "Hibou-L") if pub else None
     w_val = s0["valid"]["seed_avg"]["ci_ba"][1] - s0["valid"]["seed_avg"]["ci_ba"][0]
     w_oof = s0["oof"]["seed_avg"]["ci_ba"][1] - s0["oof"]["seed_avg"]["ci_ba"][0]
@@ -104,16 +109,14 @@ def build_paper() -> str | None:
       "We pre-registered a ladder of interventions to improve it, each transferred from neighbouring work: intermediate-layer and centre-region features, "
       "head choice, rotation/flip test-time augmentation, out-of-fold label cleaning, multi-model fusion, and LoRA fine-tuning with LP-FT, stain augmentation and weight-space averaging. "
       "Every step is selected on slide-grouped cross-validation, gated on validation, and the test split stays sealed until the ladder is frozen. "
-      f"This first release reports the foundation of that study. We reproduce the eva Hibou-L probe exactly: validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} over five seeds, against the published {hib['val_ba']:.3f}. "
+      f"We reproduce the eva Hibou-L probe exactly: validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} over five seeds, against the published {hib['val_ba']:.3f}. "
       f"Our native-transformers implementation matches Hibou's own code to a mean cosine of {parity['fp32_cpu']['mean_cosine']:.6f}. "
       f"Under the cross-validation protocol the incumbent reaches {_ba(s0['oof']['seed_avg'])} out-of-fold BA. "
       f"Controls behave as expected: shuffled labels give {ctrl['control_shuffled_labels']['oof']['seed_avg']['ba']:.3f} and a colour-histogram classifier gives {ctrl['control_color_histogram']['oof']['seed_avg']['ba']:.3f}. "
       f"A pixel-hash audit found {dv['cross_duplicates_train_test']} test images identical to train images, all from PCam test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036` at identical coordinates, which indicates a duplicate scan. "
       "We also find that the official Camelyon17-WILDS test hospital matches the colour signature of one of PCam's own source hospitals. "
       "Both findings changed the pre-registered evaluation before any test data was touched."
-      + (f" Improvement ladder so far: {len(lrows)} classifiers trained on frozen Hibou-L features; the best paired out-of-fold difference "
-         f"from the original probe is {100 * max(r['cmp']['oof']['delta_ba'] for r in lrows):+.2f} pt BA; "
-         f"steps decided: {len(decided)}, adopted: {sum(d['adopted'] for d in decided)}." if lrows else ""))
+      + findings + (" The test split and WILDS remain sealed." if lrows else ""))
     a("")
     a("= Introduction")
     a(f"Sentinel lymph-node metastasis detection is a labour-intensive step in breast-cancer staging {c('camelyon16')}. "
@@ -123,7 +126,7 @@ def build_paper() -> str | None:
       f"multi-layer probing {c('multilayer')}, ensembles {c('caruana')}, label-noise cleaning {c('panda')}, and stain augmentation {c('tellez')}. "
       "Their joint value on top of the strongest model is unknown. "
       "This study measures it with a pre-registered ladder. It uses statistics that resample whole slides, because patches from one slide are correlated, and a test split sealed in code. "
-      "This document is release 1: reproduction, controls, no-training baselines and data audit. Later releases add the ladder, fine-tuning and the unsealed test.")
+      f"This document is {release.split(':')[0].lower()} of the study; each release adds the classifiers trained since the last one, and the test split is unsealed only after the ladder is frozen.")
     a("")
     a("= Methods")
     a("== Data and audit")
@@ -149,7 +152,7 @@ def build_paper() -> str | None:
     a("")
     a("#figure(image(\"../figures/pipeline.png\", width: 100%), caption: [Study pipeline. Statistics resample whole slides; the test split and WILDS are scored once, after the ladder is frozen.])")
     a("")
-    a("= Results (release 1)")
+    a("= Results")
     a("== Data audit")
     a(f"No slide is shared between splits. There are many exact duplicates *within* splits (train {dv['train_within_split_duplicates']:,}, valid {dv['valid_within_split_duplicates']:,}, test {dv['test_within_split_duplicates']:,}), "
       "consistent with PCam's probabilistic sampling. Slide-grouped folds keep them inside one fold. "
@@ -168,12 +171,17 @@ def build_paper() -> str | None:
               "control_majority": "Majority class"}
     for k, r in ctrl.items():
         rows.append([labels[k], _ba(r["oof"]["seed_avg"]) if "oof" in r else "—", _ba(r["valid"]["seed_avg"])])
+    for k, r in models.items():  # same architecture as Hibou-L, other weights (release 3)
+        if r:
+            rows.append([CONTROL_MODELS[k].split(":")[0], _ba(r["oof"]["seed_avg"]), _ba(r["valid"]["seed_avg"])])
     a(_table(["Arm", "Train OOF BA [95% CI]", "Valid BA [95% CI]"], rows))
     a("")
     a(f"The validation CI is {w_val / w_oof:.1f}× wider than the OOF CI, because validation has only {dv['valid_slides']} slides ({dv['valid_tumour_slides']} with tumour). "
       "This is why validation serves only as a no-harm gate and selection uses train CV. "
       "Shuffled labels land at chance, so there is no label-leakage path. "
-      "Colour alone is strongly informative (tumour is hyperchromatic) but far below the foundation model.")
+      "Colour alone is strongly informative (tumour is hyperchromatic) but far below the foundation model."
+      + (" The two same-architecture controls separate what the weights contribute: natural-image DINOv2 weights recover part of the gap to Hibou-L, "
+         "and random weights score close to the colour histogram." if all(models.values()) else ""))
     a("#figure(image(\"../figures/stage_a.png\", width: 92%), caption: [Reproduced Hibou-L probe and controls. Dots are seed-averaged BA; bars are 95% stratified slide-bootstrap BCa CIs.])")
     a("== No-training baselines")
     lit = pub["literature"]
@@ -194,7 +202,7 @@ def build_paper() -> str | None:
           f"Our primary OOD pool is centres 0, 1 and 4 (CWZ, RST, LPON {c('seg2404', 'camelyon')}).")
     a("")
     if lrows:
-        a("== Improvement ladder (release 2, in progress)")
+        a("== Improvement ladder")
         a("Hibou-L stays frozen in S1–S3b; each candidate trains a new classifier on features read from it (5 slide-grouped folds; 5 seeds for S1 b–e, 1 seed from S1 f on, by the author's decision; seed sensitivity is postponed). "
           "Each classifier is compared with the original probe, paired on the same patches. Per-candidate p-values are descriptive; "
           "the pre-registered adoption rule applies Holm within a step and the validation no-harm gate.")
@@ -208,6 +216,13 @@ def build_paper() -> str | None:
             a(f"- *{d['step']}*: best candidate `{d['winner']}`; OOF test passed {d.get('oof_test_passed')}, valid gate passed "
               f"{d.get('valid_gate_passed')} → *{'adopted' if d['adopted'] else 'rejected'}*.")
         a("")
+        if h4c:
+            a("== H4 augmentation-matched control")
+            a(f"LoRA trains on augmented images, so its gain could come from the augmentation rather than from adapting the backbone {c('tellez')}. "
+              "The H4 control trains a frozen Hibou-L linear head on the same LoRA training patches, each embedded under one seeded random D4 + HED-light view. "
+              f"LoRA − H4: {pt(h4c, 'oof')} on fold 0 and {pt(h4c, 'valid')} on validation (paired slide bootstrap). "
+              "These differences are descriptive; the pre-registered H4 test is scored on the sealed test split.")
+            a("")
     a("= Planned and postponed analyses")
     a(f"The pre-registered ladder follows. Steps decided so far: {len(steps)}.")
     a(f"- S1 representation: last-layer CLS, CLS+mean, DINOv2 last-4-layer {c('dinov2')}, spread layers {c('multilayer')}, centre tokens and a centre-crop view.")
@@ -231,11 +246,15 @@ def build_paper() -> str | None:
     a("- Validation is small, so the no-harm gate has low power.")
     a("- The WILDS centre-to-hospital mapping rests on one paper plus a colour-signature check, and the WILDS data come from a community mirror.")
     a("- Results so far are from cross-validation and validation only.")
+    a("- From S1 f on, every arm uses one seed, and LoRA is a single run: seed variance of the ladder arms is unmeasured (sensitivity study postponed).")
+    lr = _j("arms/S2_logreg.json")
+    if lr and set(lr["chosen_C_per_fold"]) == {min(map(float, lr["cv_ba_per_C"]))}:
+        a("- S2's logistic regression chose the smallest C on the pre-registered grid in every fold, so the optimum may lie outside the grid.")
     a("")
-    a("= Conclusion (release 1)")
+    a("= Conclusion")
     a("The published Hibou-L PCam probe is reproducible to within 0.001 BA with an independent, remote-code-free implementation. "
-      "The study design is in place: slide-clustered statistics, a sealed test and pre-registered decisions. "
-      "Two data issues that would have contaminated evaluation (a duplicated test slide and an in-distribution WILDS test hospital) were caught and handled before any test data was used.")
+      "Two data issues that would have contaminated evaluation (a duplicated test slide and an in-distribution WILDS test hospital) were caught and handled before any test data was used."
+      + findings + " Whether the gains hold on the test split and across hospitals is the next, sealed, question.")
     a("")
     a("= AI statement")
     a("This codebase and paper were written by Claude Code (Anthropic), executing a specification provided by a human author, Libor Burian. Human cleanup and rewriting are in progress.")

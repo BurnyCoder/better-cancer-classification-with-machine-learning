@@ -67,7 +67,9 @@ class EvaProtocol:
 
 
 EVA = EvaProtocol()
-SEEDS = tuple(range(EVA.n_runs))
+# One seed per arm from Stage B on (author's instruction, 2026-11-01; seed sensitivity postponed).
+# The eva-exact reproduction and the Stage-A arms used EVA.n_runs = 5 seeds.
+SEEDS = (0,)
 N_FOLDS = 5
 SUBSET_SIZE = 65_536  # "train-64k" subset from the pre-registration
 THRESHOLD = 0.5  # fixed decision threshold on the sigmoid probability

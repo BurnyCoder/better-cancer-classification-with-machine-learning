@@ -72,3 +72,36 @@ def test_wise_alpha_endpoints():
     s0, s1 = wise_state(ft, lp, 0.0), wise_state(ft, lp, 1.0)
     assert torch.equal(s0["lora_B.w"], torch.zeros(2, 2)) and torch.equal(s0["head.weight"], torch.zeros(1, 2))
     assert torch.equal(s1["lora_B.w"], ft["lora_B.w"]) and torch.equal(s1["head.weight"], ft["head.weight"])
+
+
+def test_training_loop_runs_and_tracks_the_best_ema_checkpoint():
+    """End-to-end smoke test of train_lora / predict_with_state on CPU with a tiny backbone."""
+    import numpy as np
+    from transformers import Dinov2WithRegistersConfig, Dinov2WithRegistersModel
+
+    from pcam_hc.backbones import BackboneSpec
+    from pcam_hc.features import Representation
+    from pcam_hc.finetune import LoraClassifier, predict_with_state, train_lora
+
+    class Images:  # stands in for PCamImages: brighter images are "tumour"
+        def __init__(self, n=64):
+            rng = np.random.default_rng(0)
+            self.y = rng.integers(0, 2, n)
+            self.x = (rng.integers(0, 120, (n, 96, 96, 3)) + 120 * self.y[:, None, None, None]).astype(np.uint8)
+
+        def read(self, idx):
+            return self.x[np.asarray(idx)]
+
+    torch.manual_seed(0)
+    cfg = Dinov2WithRegistersConfig(hidden_size=32, num_hidden_layers=2, num_attention_heads=2, intermediate_size=64,
+                                    num_register_tokens=4, image_size=224, patch_size=14, use_swiglu_ffn=True)
+    spec = BackboneSpec("tiny", "", "", "hf", (0.5,) * 3, (0.5,) * 3, 32)
+    head = torch.nn.Linear(32, 1)
+    model = LoraClassifier(Dinov2WithRegistersModel(cfg), spec, {"module": head.state_dict(), "mu": None, "sd": None},
+                           Representation(((-1, "cls"),)), rank=2)
+    imgs = Images()
+    run = train_lora(model, imgs, np.arange(48), imgs.y, np.arange(48, 64), imgs.y[48:], lr=1e-2, epochs=2.0,
+                     batch=8, seed=0, eval_every=4, device="cpu", log_every=100)
+    assert run["ba"] >= 0 and run["history"] and set(run["state"]) == {k for k, p in model.named_parameters() if p.requires_grad}
+    logits = predict_with_state(model, run["state"], imgs, np.arange(48, 64), device="cpu")
+    assert logits.shape == (16,) and np.isfinite(logits).all()

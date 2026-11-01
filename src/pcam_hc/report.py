@@ -87,6 +87,95 @@ def backbone_scan_figure(records: dict) -> None:
     plt.close(fig)
 
 
+def published_context_figure() -> None:
+    """Published eva PCam BA (val and test) per model, with our reproduced Hibou-L valid BA."""
+    pub = PATHS.results / "published_baselines.json"
+    gate = PATHS.results / "h2_gate.json"
+    if not pub.exists():
+        return
+    rows = json.loads(pub.read_text())["eva_leaderboard"]["rows"]
+    rows = sorted(rows, key=lambda r: r["test_ba"])
+    fig, ax = plt.subplots(figsize=(7.5, 0.36 * len(rows) + 1.4), facecolor=SURFACE)
+    y = range(len(rows))
+    ax.plot([r["val_ba"] for r in rows], y, "o", mfc=SURFACE, mec=GROUP_COLOR["other foundation model"], mew=2, ms=7,
+            linestyle="", label="eva published, PCam valid")
+    ax.plot([r["test_ba"] for r in rows], y, "o", color=GROUP_COLOR["Hibou-L"], ms=7, mec=SURFACE, mew=1.5,
+            linestyle="", label="eva published, PCam test")
+    if gate.exists():
+        g = json.loads(gate.read_text())
+        i = [r["model"] for r in rows].index("Hibou-L")
+        ax.errorbar(g["valid_ba_seed_mean"], i + 0.28, xerr=g["valid_ba_seed_sd"], fmt="D", color=INK, ms=6,
+                    elinewidth=1.5, capsize=0, label="this study, reproduced Hibou-L valid (5 seeds, ±SD)")
+    labels = [r["model"] + ("" if r["accessible_here"] else " *") for r in rows]
+    ax.set_yticks(list(y), labels, color=INK)
+    ax.set_xlabel("Balanced accuracy (frozen backbone + linear probe)", color=INK2)
+    _style(ax)
+    ax.legend(frameon=False, fontsize=8, loc="upper left")
+    ax.set_title("Published no-training baselines (kaiko eva leaderboard); * = licence not accepted here",
+                 color=INK, fontsize=10, loc="left")
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "published_baselines.png", dpi=180)
+    plt.close(fig)
+
+
+def stage_a_figure(records: dict) -> None:
+    """S0 reproduction, S0 CV incumbent and the controls: OOF (train CV) and valid BA with 95% CIs."""
+    order = [("control_majority", "Majority class"), ("control_shuffled_labels", "Hibou-L, shuffled labels"),
+             ("control_color_histogram", "Colour histogram + logistic regression"),
+             ("S0_hibou_l_cls_linear", "Hibou-L CLS + linear (CV protocol)"),
+             ("S0_eva_exact_hibou_l", "Hibou-L CLS + linear (eva-exact)")]
+    order = [(k, l) for k, l in order if k in records]
+    if not order:
+        return
+    fig, ax = plt.subplots(figsize=(7.5, 0.55 * len(order) + 1.3), facecolor=SURFACE)
+    labelled = set()
+    for i, (k, _) in enumerate(order):
+        r = records[k]
+        for split, dy, color, label in (("oof", 0.12, GROUP_COLOR["Hibou-L"], "train OOF (5 slide-grouped folds)"),
+                                        ("valid", -0.12, GROUP_COLOR["other foundation model"], "PCam valid")):
+            if split not in r:
+                continue
+            m = r[split]["seed_avg"]
+            lo, hi = m["ci_ba"]
+            ax.plot([lo, hi], [i + dy] * 2, color=color, linewidth=2)
+            ax.plot(m["ba"], i + dy, "o", color=color, ms=7, mec=SURFACE, mew=1.5,
+                    label=None if split in labelled else label)
+            labelled.add(split)
+    ax.set_yticks(range(len(order)), [l for _, l in order], color=INK)
+    ax.set_xlabel("Balanced accuracy (95% stratified slide-bootstrap BCa CI)", color=INK2)
+    _style(ax)
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, frameon=False, fontsize=8.5, loc="lower right")
+    ax.set_title("Stage A: reproduced Hibou-L probe vs. controls", color=INK, fontsize=11, loc="left")
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "stage_a.png", dpi=180)
+    plt.close(fig)
+
+
+def pipeline_figure() -> None:
+    """Block diagram of the study pipeline (data -> frozen features -> ladder -> sealed evaluation)."""
+    from matplotlib.patches import FancyBboxPatch
+
+    texts = ["PCam HDF5\n(Zenodo, md5)", "Leakage checks\nslide-disjoint,\npixel hashes",
+             "Frozen backbones\nHibou-L + 11 others\n(bf16, cached)", "Heads on cache\nlinear / logreg / MLP\n5 slide-grouped folds",
+             "Ladder S1-S6\nOOF winner + Holm\n+ valid no-harm gate", "Freeze + tag,\nthen score test\n& WILDS once"]
+    boxes = [(t, 0.01 + i * 0.167) for i, t in enumerate(texts)]
+    fig, ax = plt.subplots(figsize=(13, 2.4), facecolor=SURFACE)
+    ax.set_axis_off()
+    for text, x in boxes:
+        ax.add_patch(FancyBboxPatch((x, 0.2), 0.14, 0.6, boxstyle="round,pad=0.01,rounding_size=0.02",
+                                    facecolor="#eef3fb", edgecolor=GROUP_COLOR["Hibou-L"], linewidth=1.2))
+        ax.text(x + 0.07, 0.5, text, ha="center", va="center", fontsize=8, color=INK)
+    for (_, x0), (_, x1) in zip(boxes, boxes[1:]):
+        ax.annotate("", xy=(x1, 0.5), xytext=(x0 + 0.14, 0.5), arrowprops=dict(arrowstyle="->", color=INK2))
+    ax.text(0.585, 0.05, "LoRA fine-tuning (S5) reads images directly; statistics resample whole slides",
+            ha="center", fontsize=8, color=INK2)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    fig.savefig(FIG_DIR / "pipeline.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
 def site_data(records: dict) -> None:
     """Aggregate-only JSON for the GitHub Pages explorer (licence-clean for every backbone)."""
 
@@ -108,11 +197,42 @@ def site_data(records: dict) -> None:
         steps.append({k: s[k] for k in ("step", "incumbent", "candidates", "winner", "adopted")})
     load = lambda f: json.loads((PATHS.results / f).read_text()) if (PATHS.results / f).exists() else None  # noqa: E731
     final = load("final/summary.json")
+    pub = load("published_baselines.json")
     out = {"arms": arms_out, "steps": steps, "gate": load("h2_gate.json"), "ladder": load("ladder.json"),
-           "final": final}
+           "final": final, "published": pub["eva_leaderboard"]["rows"] if pub else [],
+           "literature": pub["literature"] if pub else []}
     site = PROJECT_ROOT / "site" / "data"
     site.mkdir(parents=True, exist_ok=True)
     (site / "results.json").write_text(json.dumps(out, indent=1, default=float))
+
+
+def highlights() -> str | None:
+    """README highlights (positive and negative findings), every number read from results/."""
+    get = lambda f: json.loads((PATHS.results / f).read_text()) if (PATHS.results / f).exists() else None  # noqa: E731
+    dv, gate, parity, s0 = get("data_verification.json"), get("h2_gate.json"), get("parity.json"), get("arms/S0_hibou_l_cls_linear.json")
+    sh, ch, wl, pub = (get("arms/control_shuffled_labels.json"), get("arms/control_color_histogram.json"),
+                       get("wilds_data.json"), get("published_baselines.json"))
+    if not all([dv, gate, parity, s0, sh, ch]):
+        return None
+    hib = next(r for r in pub["eva_leaderboard"]["rows"] if r["model"] == "Hibou-L") if pub else None
+    ci = lambda b: f"{b['ba']:.3f} (95% CI {b['ci_ba'][0]:.3f}–{b['ci_ba'][1]:.3f})"  # noqa: E731
+    out = [
+        f"- ✅ **Exact reproduction.** Our Hibou-L probe scores **{gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f}** validation balanced accuracy (BA; 5 seeds), against the published **{hib['val_ba']:.3f}** ([eva](https://github.com/kaiko-ai/eva)). "
+        f"Our remote-code-free model matches Hibou's own code to a cosine of {parity['fp32_cpu']['mean_cosine']:.6f}.",
+        f"- ✅ **Incumbent under cross-validation** over {dv['train_slides']} training slides: OOF BA {ci(s0['oof']['seed_avg'])}; validation {ci(s0['valid']['seed_avg'])}.",
+        f"- ✅ **Controls behave as expected.** Shuffled labels: {sh['oof']['seed_avg']['ba']:.3f} (chance). Colour histogram only: {ci(ch['oof']['seed_avg'])}. Colour carries signal, but far less than Hibou-L.",
+        f"- ⚠️ **Data leak found in PCam.** {dv['cross_duplicates_train_test']} distinct test images are pixel-identical to train images. All come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, at identical slide coordinates, which indicates a duplicate scan. CAMELYON16 notes list test_049 as a duplicate slide removed from the official release, but it is still in PCam. "
+        "Every test result will also be reported without it (decided while test was sealed).",
+        f"- ⚠️ **Validation split is small.** It has {dv['valid_slides']} slides, {dv['valid_tumour_slides']} with tumour, so its CIs are "
+        f"{(s0['valid']['seed_avg']['ci_ba'][1] - s0['valid']['seed_avg']['ci_ba'][0]) / (s0['oof']['seed_avg']['ci_ba'][1] - s0['oof']['seed_avg']['ci_ba'][0]):.1f}× wider than the train CV ones. "
+        "Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.",
+    ]
+    if wl:
+        d = wl["hospital_check"]["l1_distance_to_pcam_hospital"]["2"]
+        out.append(f"- ⚠️ **The official Camelyon17-WILDS test hospital is not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 {d['UMCU']:.2f} vs. {d['RUMC']:.2f} to RUMC). "
+                   "Our out-of-hospital check therefore uses CWZ, RST and LPON.")
+    out.append(f"- **Data:** train {dv['train_n']:,} / valid {dv['valid_n']:,} / test {dv['test_n']:,} patches from {dv['train_slides']} / {dv['valid_slides']} / {dv['test_slides']} slides; no slide is shared between splits.")
+    return "\n".join(out)
 
 
 def inject_readme(markdown: str, marker: str) -> None:
@@ -131,6 +251,9 @@ def build() -> None:
     table = arms_table(records)
     (TAB_DIR / "arms.md").write_text(table + "\n", encoding="utf-8")
     backbone_scan_figure(records)
+    published_context_figure()
+    stage_a_figure(records)
+    pipeline_figure()
     site_data(records)
     gate_path = PATHS.results / "h2_gate.json"
     if gate_path.exists():
@@ -139,6 +262,11 @@ def build() -> None:
                 f"(5 seeds) vs. eva's published 0.939 ± 0.010 → **{'pass' if g['pass'] else 'FAIL'}**.")
         (TAB_DIR / "h2_gate.md").write_text(gate + "\n", encoding="utf-8")
         inject_readme(gate + "\n\n" + table, "RESULTS")
+    hl = highlights()
+    if hl:
+        inject_readme(hl, "HIGHLIGHTS")
+    from pcam_hc.paper import compile_paper
     from pcam_hc.report_experiments import build_experiment_reports
 
     build_experiment_reports()
+    compile_paper()

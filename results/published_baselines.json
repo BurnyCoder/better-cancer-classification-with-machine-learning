@@ -1,0 +1,164 @@
+{
+  "eva_leaderboard": {
+    "source": "https://raw.githubusercontent.com/kaiko-ai/eva/5710f2df0342e6f2b85fa658a0b2a519829b75e8/tools/data/leaderboards/pathology.csv",
+    "protocol": "frozen backbone, linear head, eva PCam config, 5 runs",
+    "rows": [
+      {
+        "model": "Hibou-L",
+        "eva_id": "histai_hibou_l",
+        "val_ba": 0.939,
+        "test_ba": 0.955,
+        "accessible_here": true
+      },
+      {
+        "model": "UNI2-h",
+        "eva_id": "mahmood_uni2_h",
+        "val_ba": 0.944,
+        "test_ba": 0.95,
+        "accessible_here": false
+      },
+      {
+        "model": "Prov-GigaPath",
+        "eva_id": "prov_gigapath",
+        "val_ba": 0.935,
+        "test_ba": 0.945,
+        "accessible_here": true
+      },
+      {
+        "model": "H-optimus-0",
+        "eva_id": "bioptimus_h_optimus_0",
+        "val_ba": 0.932,
+        "test_ba": 0.943,
+        "accessible_here": true
+      },
+      {
+        "model": "Virchow2",
+        "eva_id": "paige_virchow2",
+        "val_ba": 0.933,
+        "test_ba": 0.938,
+        "accessible_here": true
+      },
+      {
+        "model": "UNI",
+        "eva_id": "mahmood_uni",
+        "val_ba": 0.936,
+        "test_ba": 0.937,
+        "accessible_here": false
+      },
+      {
+        "model": "Midnight-12k",
+        "eva_id": "kaiko_midnight_12k",
+        "val_ba": 0.929,
+        "test_ba": 0.929,
+        "accessible_here": true
+      },
+      {
+        "model": "Phikon",
+        "eva_id": "owkin_phikon",
+        "val_ba": 0.916,
+        "test_ba": 0.92,
+        "accessible_here": true
+      },
+      {
+        "model": "kaiko ViT-B/8",
+        "eva_id": "kaiko_vitb8",
+        "val_ba": 0.912,
+        "test_ba": 0.915,
+        "accessible_here": false
+      },
+      {
+        "model": "kaiko ViT-L/14",
+        "eva_id": "kaiko_vitl14",
+        "val_ba": 0.914,
+        "test_ba": 0.911,
+        "accessible_here": false
+      },
+      {
+        "model": "kaiko ViT-B/16",
+        "eva_id": "kaiko_vitb16",
+        "val_ba": 0.905,
+        "test_ba": 0.906,
+        "accessible_here": false
+      },
+      {
+        "model": "kaiko ViT-S/16",
+        "eva_id": "kaiko_vits16",
+        "val_ba": 0.905,
+        "test_ba": 0.902,
+        "accessible_here": false
+      },
+      {
+        "model": "Lunit ViT-S/16",
+        "eva_id": "lunit_vits16",
+        "val_ba": 0.894,
+        "test_ba": 0.897,
+        "accessible_here": false
+      },
+      {
+        "model": "Phikon-v2",
+        "eva_id": "owkin_phikon_v2",
+        "val_ba": 0.918,
+        "test_ba": 0.894,
+        "accessible_here": true
+      },
+      {
+        "model": "kaiko ViT-S/8",
+        "eva_id": "kaiko_vits8",
+        "val_ba": 0.894,
+        "test_ba": 0.886,
+        "accessible_here": false
+      }
+    ]
+  },
+  "literature": [
+    {
+      "model": "P4M-DenseNet (rotation-equivariant CNN, trained from scratch)",
+      "metric": "accuracy",
+      "value": 0.898,
+      "source": "https://arxiv.org/abs/1806.03962",
+      "where": "Veeling et al. 2018, Table 1"
+    },
+    {
+      "model": "P4M-DenseNet",
+      "metric": "AUROC",
+      "value": 0.963,
+      "source": "https://arxiv.org/abs/1806.03962",
+      "where": "Veeling et al. 2018, Table 1"
+    },
+    {
+      "model": "Hibou-L, SGD linear probe",
+      "metric": "accuracy",
+      "value": 0.953,
+      "source": "https://arxiv.org/abs/2406.05074",
+      "where": "Nechaev et al. 2024, Table 1"
+    },
+    {
+      "model": "Hibou-B, SGD linear probe",
+      "metric": "accuracy",
+      "value": 0.946,
+      "source": "https://arxiv.org/abs/2406.05074",
+      "where": "Nechaev et al. 2024, Table 1"
+    },
+    {
+      "model": "UNI, linear probe",
+      "metric": "accuracy",
+      "value": 0.916,
+      "source": "https://arxiv.org/abs/2410.16038",
+      "where": "Lee et al. 2024, PCam results"
+    },
+    {
+      "model": "UNI, full fine-tuning",
+      "metric": "accuracy",
+      "value": 0.904,
+      "source": "https://arxiv.org/abs/2410.16038",
+      "where": "Lee et al. 2024, PCam results"
+    },
+    {
+      "model": "UNI, LoRA",
+      "metric": "accuracy",
+      "value": 0.9424,
+      "source": "https://arxiv.org/abs/2410.16038",
+      "where": "Lee et al. 2024, PCam results"
+    }
+  ]
+}

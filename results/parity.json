@@ -1,0 +1,17 @@
+{
+  "fp32_cpu": {
+    "mean_cosine": 1.0,
+    "min_cosine": 0.9999998211860657,
+    "max_abs_diff": 6.794929504394531e-06
+  },
+  "bf16_gpu": {
+    "mean_cosine": 0.999406635761261,
+    "min_cosine": 0.9336457252502441,
+    "max_abs_diff": 1.5404540300369263
+  },
+  "cache_fp16": {
+    "mean_cosine": 0.999406635761261,
+    "min_cosine": 0.9336457252502441
+  },
+  "gate_pass": true
+}

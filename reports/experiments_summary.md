@@ -35,6 +35,21 @@ Best Hibou-L pipeline: `S5_lora`. Frozen-feature incumbent (the input to the pos
 | DINOv2-L (control) | ViT-L/14 + 4 registers, 304M | DINOv2 | LVD-142M natural images | 0.8797 [0.8622, 0.8940] | https://arxiv.org/abs/2309.16588 |
 | Random ViT-L (control) | ViT-L/14 + 4 registers, 304M | none (random init) | none | 0.7973 [0.7692, 0.8201] | — |
 
+## Classifiers trained in this study
+
+All are evaluated on H&E-stained lymph-node patches (PCam, 96×96 px); "valid BA" is balanced accuracy on the 54 validation slides.
+
+| Classifier | In plain words | What is trained | Algorithm and objective | Data and curriculum | Valid BA [95% CI] |
+|---|---|---|---|---|---|
+| `S0_hibou_l_cls_linear` | The original: Hibou-L's summary vector of a patch fed to one weighted sum | linear head (1,025 weights); Hibou-L frozen | AdamW, binary cross-entropy, 12,500 steps | all 216 train slides; no curriculum | 0.9367 [0.8888, 0.9617] |
+| `S3b_oof_label_cleaning` | The original, retrained after removing patches whose label looked wrong | linear head; Hibou-L frozen | as above | train minus patches whose out-of-fold prediction is more than 0.9 away from the label | 0.9368 [0.8908, 0.9636] |
+| `S5_lora` | Best model: Hibou-L itself slightly adjusted for this task | LoRA adapters (rank 16) in all 24 attention blocks + head | AdamW with warm-up + cosine schedule, BCE, EMA of weights | folds 1–4, cleaned; two stages: linear probe first, then fine-tuning (LP-FT); rotations/flips + stain jitter | 0.9444 [0.8962, 0.9695] |
+| `H4_aug_control` | Control: the original, trained on the same recoloured/rotated images LoRA saw | linear head; Hibou-L frozen | AdamW, BCE | folds 1–4, cleaned, one augmented view per patch | 0.9344 [0.8853, 0.9627] |
+| `S0_scan_dinov2_reg_l` | Control: same architecture trained on everyday photos instead of pathology | linear head; DINOv2-L frozen | AdamW, BCE | all train slides | 0.8682 [0.8103, 0.9023] |
+| `S0_scan_random_vitl_reg4` | Control: same architecture with random, untrained weights | linear head; random ViT-L frozen | AdamW, BCE | all train slides | 0.7902 [0.7232, 0.8334] |
+| `control_color_histogram` | Control: uses only the colour distribution of the patch | logistic regression on 96 colour bins | L-BFGS, logistic loss | all train slides | 0.8098 [0.7530, 0.8472] |
+| `control_shuffled_labels` | Control: trained on shuffled labels, so it can only guess | linear head; Hibou-L frozen | AdamW, BCE | train with permuted labels | 0.4731 [0.4280, 0.5212] |
+
 ## Experiments
 
 - [01_stage_a_reproduction_controls](experiments/01_stage_a_reproduction_controls.md)

@@ -2,6 +2,24 @@
 
 This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406.05074), [weights](https://huggingface.co/histai/hibou-L)), the pathology foundation model with the best published frozen-probe score on the official **PatchCamelyon (PCam)** lymph-node metastasis test split ([kaiko eva leaderboard](https://github.com/kaiko-ai/eva)), and tries to make it more accurate. Every change is pre-registered and tested one step at a time.
 
+<!-- BEST:START -->
+### 🏆 Best improved model so far: Hibou-L fine-tuned with LoRA (`S5_lora`)
+
+| | Original Hibou-L probe | `S5_lora` |
+|---|---|---|
+| Validation balanced accuracy [95% CI] | 0.9367 [0.8888, 0.9617] | **0.9444 [0.8962, 0.9695]** |
+| Validation AUROC | 0.9823 | **0.9848** |
+
+- **Gain over the original:** +0.77 pt [+0.27, +1.41] balanced accuracy on the 54 validation slides, paired per-slide sign-flip p = 0.0081.
+- **Augmentation-matched control:** it beats a frozen Hibou-L head trained on the same augmented images by +0.99 pt [+0.58, +1.51], which suggests the gain comes from adapting the network rather than from the augmentation alone.
+- **Recipe:** LoRA r=16 lr=0.0001, all 24 blocks, LP-FT, D4+HED, drop-path 0.1, EMA. Weights: [Hugging Face](https://huggingface.co/BurnyCoder/pcam-hibou-hillclimb/tree/main/lora/S5_lora).
+- **Caveats:** validation only (the test split and the other-hospital check are still sealed); a single training run; trained before the code-review fixes listed in the [ladder report](reports/experiments/02_ladder_hibou_l.md).
+<!-- BEST:END -->
+
+**Example outputs.** Validation patches drawn at random (seed 0) from four groups defined by whether the original probe and the LoRA model are right, with each model's predicted tumour probability. The baseline is the original probe; the controls are DINOv2-L with natural-image weights and the colour histogram.
+
+![Example outputs](reports/figures/examples.png)
+
 **How it works:**
 - **The model.** Hibou-L is a DINOv2 ViT-L/14 with 304M parameters, pretrained without labels on about 1M private slides.
 - **Features.** We turn every PCam patch into Hibou-L embeddings, train small classifier heads on them, and then try ideas transferred from neighbouring work:
@@ -100,10 +118,6 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 ![Stage A](reports/figures/stage_a.png)
 
 ![Published baselines](reports/figures/published_baselines.png)
-
-**Example outputs.** Validation patches drawn at random (seed 0) from four groups defined by whether the original probe and the LoRA model are right, with each model's predicted tumour probability. The baseline is the original probe; the controls are DINOv2-L with natural-image weights and the colour histogram.
-
-![Example outputs](reports/figures/examples.png)
 
 **LoRA training.** Training loss (single minibatches every 50 steps, with a running mean) and the checkpoint-selection score of the EMA weights.
 

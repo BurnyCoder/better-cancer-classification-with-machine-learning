@@ -20,7 +20,7 @@
 | S1 representation | `S1_f_best_plus_centre_view` | 0.9497 [0.9362, 0.9599] | -0.01 pt [-0.15, +0.17] | 0.944 | 0.9354 | -0.13 pt |
 
 ## Step decisions (pre-registered rule)
-- No step decided yet; candidates of the current step are still being trained.
+- **S1_representation**: best candidate `S1_f_best_plus_centre_view`. OOF test passed: False; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.
 
 ## Notes
 - **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.

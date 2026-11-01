@@ -19,7 +19,7 @@ from sklearn.model_selection import train_test_split
 
 from pcam_hc import experiments as ex
 from pcam_hc.backbones import REGISTRY, load_model
-from pcam_hc.config import PATHS, SUBSET_SIZE
+from pcam_hc.config import PATHS, SEEDS, SUBSET_SIZE
 from pcam_hc.data import PCamImages, make_subset
 from pcam_hc.finetune import (
     ConvNeXtClassifier, LoraClassifier, predict_with_state, soup_state, train_lora, wise_state,
@@ -99,8 +99,8 @@ def sweep(ctx, sp: dict, head_state: dict) -> dict:
     return out
 
 
-def final_runs(ctx, sp: dict, head_state: dict, lr: float, rank: int, seeds=(0, 1, 2)) -> dict:
-    """3 seeds x 1 epoch on folds 1-4; best EMA checkpoint on the fold-0 10k subsample (resumable)."""
+def final_runs(ctx, sp: dict, head_state: dict, lr: float, rank: int, seeds=SEEDS) -> dict:
+    """One run per seed (1 seed; seed sensitivity postponed) x 1 epoch on folds 1-4; best EMA checkpoint on the fold-0 10k subsample (resumable)."""
     images = PCamImages("train", in_memory=True)
     LORA_DIR.mkdir(parents=True, exist_ok=True)
     runs = {}
@@ -153,12 +153,12 @@ def step_s5(ctx) -> dict:
 
 # ----------------------------------------------------------------------------- S5b weight space
 def step_s5b(ctx) -> dict:
-    """WiSE-style scaling alpha in {0.25, 0.5, 0.75} and a uniform soup vs the 3-seed LoRA ensemble
-    (alpha = 1), on fold 0 minus the checkpointing subsample, Holm over the four candidates."""
+    """WiSE-style scaling alpha in {0.25, 0.5, 0.75} (and, with several LoRA runs, a uniform soup) vs
+    the LoRA model (alpha = 1), on fold 0 minus the checkpointing subsample, Holm over the candidates."""
     sp = splits(ctx)
     head_state = torch.load(LORA_DIR / "lp_head.pt", weights_only=False)
     lora = read_ladder()["configs"]["S5_lora"]["lora"]
-    runs = [torch.load(LORA_DIR / f"seed{s}.pt", weights_only=False)["state"] for s in (0, 1, 2)]
+    runs = [torch.load(p, weights_only=False)["state"] for p in sorted(LORA_DIR.glob("seed*.pt"))]
     lp = {k: v for k, v in head_state["module"].items()}
     sel, y_sel, s_sel = sp["select"], ctx.y_train[sp["select"]], ctx.slides_train[sp["select"]]
     base = ex.load_preds("S5_lora")
@@ -170,10 +170,11 @@ def step_s5b(ctx) -> dict:
         states = [wise_state(r, lp, a) for r in runs]
         preds[f"S5b_wise_{a}"] = (predict_states(model, states, "train", sel),
                                   predict_states(model, states, "valid", np.arange(len(ctx.y_valid))))
-    soup_model = new_model(head_state, 3 * lora["rank"])
-    soup = soup_state(runs)
-    preds["S5b_soup"] = (predict_states(soup_model, [soup], "train", sel),
-                         predict_states(soup_model, [soup], "valid", np.arange(len(ctx.y_valid))))
+    if len(runs) > 1:  # a soup needs several runs; with one seed it is postponed with the seed study
+        soup_model = new_model(head_state, len(runs) * lora["rank"])
+        soup = soup_state(runs)
+        preds["S5b_soup"] = (predict_states(soup_model, [soup], "train", sel),
+                             predict_states(soup_model, [soup], "valid", np.arange(len(ctx.y_valid))))
     for name, (o, v) in preds.items():
         rec = {"name": name, "description": name.replace("_", " "), "head": "lora", "backbones": ["hibou_l"],
                "publishable": True, "oof_subset": "fold0_minus_ckpt", "oof": ex.summarise(y_sel, o, s_sel),
@@ -243,7 +244,7 @@ def ex_load_aug(rep, base: str) -> np.ndarray:
 
 
 # ----------------------------------------------------------------------------- ConvNeXt-T baseline
-def convnext_baseline(ctx, seeds=(0, 1, 2), lr: float = 1e-4, epochs: float = 2.0) -> dict:
+def convnext_baseline(ctx, seeds=SEEDS, lr: float = 1e-4, epochs: float = 2.0) -> dict:
     """End-to-end ImageNet ConvNeXt-T, all weights trained, D4 + HED-light, same splits as LoRA.
     Fixed recipe (not tuned): AdamW lr 1e-4, 2 epochs, batch 64, cosine schedule, EMA, drop-path 0.1,
     gradient checkpointing (batch 128 exceeded the 8 GB card)."""

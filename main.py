@@ -135,8 +135,11 @@ def cmd_stage_a(args):
         ex.save_arm("control_majority", rec, {"valid": const})
     if "scan" in args.parts:  # every backbone with a finished cache, eva CLS embedding, CV protocol
         for name in args.backbones if args.backbones != ["hibou_l"] else REGISTRY:
-            if name == "hibou_l" or not (cache_dir(name, "valid") / "full.npy.progress").exists():
-                continue
+            if name == "hibou_l" or not all(
+                    (cache_dir(name, sp) / "full.npy.progress").exists() and
+                    int((cache_dir(name, sp) / "full.npy.progress").read_text()) ==
+                    json.loads((cache_dir(name, sp) / "meta.json").read_text())["n"] for sp in ("train", "valid")):
+                continue  # only backbones whose train and valid caches are complete
             arm = f"S0_scan_{name}"
             if (out / "arms" / f"{arm}.json").exists():
                 continue

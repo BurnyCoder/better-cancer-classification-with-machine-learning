@@ -35,12 +35,14 @@ WISE_ALPHAS = (0.25, 0.5, 0.75)
 
 
 # ----------------------------------------------------------------------------- shared pieces
-def splits(ctx) -> dict:
-    """Index sets: LoRA training patches (folds 1-4, minus labels flagged by S3b if it was adopted),
-    fold 0, its 10k checkpointing subsample, the fold-0 selection set (fold 0 minus checkpointing
-    patches), and the sweep set (train-64k within the LoRA training patches)."""
-    name, _, _, cfg = incumbent(hibou_only=True)
+def splits(ctx, clean: bool = True) -> dict:
+    """Index sets: LoRA training patches (folds 1-4, minus labels flagged by S3b if it was adopted and
+    `clean`), fold 0, its 10k checkpointing subsample, the fold-0 selection set (fold 0 minus
+    checkpointing patches), and the sweep set (train-64k within the LoRA training patches)."""
     train = np.flatnonzero(ctx.folds != 0)
+    name, cfg = None, {}
+    if clean and read_ladder().get("incumbent"):
+        name, _, _, cfg = incumbent(hibou_only=True)
     if "clean_threshold" in cfg:
         p = expit(ex.load_preds(base_arm(name))["oof"].astype(np.float64)).mean(0)
         train = train[np.abs(ctx.y_train[train] - p[train]) <= cfg["clean_threshold"]]
@@ -78,7 +80,7 @@ def predict_states(model, states: list, split: str, idx) -> np.ndarray:
 def sweep(ctx, sp: dict, head_state: dict) -> dict:
     """Successive halving over lr x rank on the sweep set: every config gets 1/4 epoch, the best half
     1/2 epoch, the best of those a full epoch of the sweep set; scored on the fold-0 checkpoint subsample."""
-    images = PCamImages("train")
+    images = PCamImages("train", in_memory=True)
     alive, results = list(SWEEP), {}
     for budget in (0.25, 0.5, 1.0):
         scores = {}
@@ -99,7 +101,7 @@ def sweep(ctx, sp: dict, head_state: dict) -> dict:
 
 def final_runs(ctx, sp: dict, head_state: dict, lr: float, rank: int, seeds=(0, 1, 2)) -> dict:
     """3 seeds x 1 epoch on folds 1-4; best EMA checkpoint on the fold-0 10k subsample (resumable)."""
-    images = PCamImages("train")
+    images = PCamImages("train", in_memory=True)
     LORA_DIR.mkdir(parents=True, exist_ok=True)
     runs = {}
     for seed in seeds:
@@ -243,9 +245,10 @@ def ex_load_aug(rep, base: str) -> np.ndarray:
 # ----------------------------------------------------------------------------- ConvNeXt-T baseline
 def convnext_baseline(ctx, seeds=(0, 1, 2), lr: float = 1e-4, epochs: float = 2.0) -> dict:
     """End-to-end ImageNet ConvNeXt-T, all weights trained, D4 + HED-light, same splits as LoRA.
-    Fixed recipe (not tuned): AdamW lr 1e-4, 2 epochs, batch 128, cosine schedule, EMA, drop-path 0.1."""
-    sp = splits(ctx)
-    images = PCamImages("train")
+    Fixed recipe (not tuned): AdamW lr 1e-4, 2 epochs, batch 64, cosine schedule, EMA, drop-path 0.1,
+    gradient checkpointing (batch 128 exceeded the 8 GB card)."""
+    sp = splits(ctx, clean=False)  # a baseline: plain train folds 1-4, no ladder components
+    images = PCamImages("train", in_memory=True)
     out_dir = PATHS.ckpt / "convnext"
     out_dir.mkdir(parents=True, exist_ok=True)
     f0, val, runs = [], [], {}
@@ -253,7 +256,7 @@ def convnext_baseline(ctx, seeds=(0, 1, 2), lr: float = 1e-4, epochs: float = 2.
         path = out_dir / f"seed{seed}.pt"
         if not path.exists():
             run = train_lora(ConvNeXtClassifier(), images, sp["train"], ctx.y_train, sp["ckpt"],
-                             ctx.y_train[sp["ckpt"]], lr=lr, epochs=epochs, batch=128, seed=seed, eval_every=1000)
+                             ctx.y_train[sp["ckpt"]], lr=lr, epochs=epochs, batch=64, seed=seed, eval_every=2000)
             torch.save({k: run[k] for k in ("ba", "step", "state", "history", "img_per_s")}, path)
         run = torch.load(path, weights_only=False)
         runs[seed] = {k: run[k] for k in ("ba", "step", "history", "img_per_s")}

@@ -1,0 +1,40 @@
+{
+  "incumbent": "S0_hibou_l_cls_linear",
+  "history": [],
+  "configs": {
+    "S0_hibou_l_cls_linear": {
+      "representation": {
+        "parts": [
+          [
+            -1,
+            "cls"
+          ]
+        ],
+        "center": false,
+        "views": [
+          "full"
+        ]
+      },
+      "head": "linear"
+    },
+    "S1_b_cls24_mean24": {
+      "representation": {
+        "parts": [
+          [
+            -1,
+            "cls"
+          ],
+          [
+            -1,
+            "mean"
+          ]
+        ],
+        "center": false,
+        "views": [
+          "full"
+        ]
+      },
+      "head": "linear"
+    }
+  }
+}

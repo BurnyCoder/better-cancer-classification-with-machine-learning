@@ -82,7 +82,7 @@ class PCamImages:
     """Random access to a split's images. Uses a numpy memmap when the HDF5 dataset is stored
     contiguously and uncompressed (fast fancy indexing), otherwise falls back to h5py."""
 
-    def __init__(self, split: str):
+    def __init__(self, split: str, in_memory: bool = False):
         self.file = h5py.File(h5_file(split, "x"), "r")
         dset = self.file["x"]
         self.shape = dset.shape
@@ -91,6 +91,8 @@ class PCamImages:
             self.array = np.memmap(h5_file(split, "x"), dtype=np.uint8, mode="r", offset=offset, shape=dset.shape)
         else:
             self.array = dset
+        if in_memory:  # random-access training: one sequential read (~7 GB for train) beats ~1.4 s per random batch from disk
+            self.array = np.asarray(self.array[:])
 
     def __len__(self) -> int:
         return self.shape[0]

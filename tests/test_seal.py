@@ -34,3 +34,18 @@ def test_seal_blocks_until_tag_and_hash_match(tmp_path):
 
 def test_config_hash_is_order_invariant():
     assert config_hash({"a": 1, "b": [1, 2]}) == config_hash({"b": [1, 2], "a": 1})
+
+
+def test_test_images_and_labels_are_guarded(monkeypatch):
+    """Reading test images or labels outside the pre-registered audit goes through the seal."""
+    import pcam_hc.seal as seal
+    from pcam_hc.data import PCamImages, load_labels
+
+    def sealed():
+        raise TestSealedError("sealed")
+
+    monkeypatch.setattr(seal, "frozen_arms", sealed)
+    with pytest.raises(TestSealedError):
+        PCamImages("test")
+    with pytest.raises(TestSealedError):
+        load_labels("test")

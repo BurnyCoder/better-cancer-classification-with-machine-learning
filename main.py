@@ -176,7 +176,7 @@ def cmd_stage_c(args):
     ctx = Context()
     for part in args.parts:
         {"s5": stage_c.step_s5, "s5b": stage_c.step_s5b, "h4": stage_c.h4_control,
-         "convnext": stage_c.convnext_baseline}[part](ctx)
+         "convnext": stage_c.convnext_baseline, "mask-audit": stage_c.mask_audit}[part](ctx)
 
 
 def cmd_wilds_prepare(args):

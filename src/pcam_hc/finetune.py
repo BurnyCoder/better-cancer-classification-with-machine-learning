@@ -55,7 +55,10 @@ def hed_jitter(x: torch.Tensor, sigma: float, generator: torch.Generator | None 
 
 
 def augment(x: torch.Tensor, sigma: float, generator: torch.Generator) -> torch.Tensor:
-    """Random D4 element per image, then HED-light jitter."""
+    """Random D4 element per image, then HED jitter. Note on strength: in scikit-image >= 0.19 stain units
+    sigma = 0.05 shifts each stain by up to 0.05 * ln(1e6) = 0.69 optical density, which changes pixels by
+    about 36/255 on average (measured on PCam valid); Tellez et al. 2019 call sigma = 0.05 "HED-light" but
+    do not state the units."""
     ks = torch.randint(0, 8, (x.shape[0],), generator=generator)
     x = torch.stack([d4_view(img, int(k)) for img, k in zip(x, ks)])
     return hed_jitter(x, sigma, generator)
@@ -136,7 +139,8 @@ class LoraClassifier(nn.Module):
 
         feats = torch.cat([self.features(preprocess(apply_view(x_uint8, v), self.spec.mean, self.spec.std))
                            for v in self.views], -1).float()
-        return self.head((feats - self.mu) / self.sd).squeeze(-1)
+        with torch.autocast(device_type=feats.device.type, enabled=False):  # fp32 head: bf16 logits coarsen NLL/ECE
+            return self.head((feats - self.mu) / self.sd).squeeze(-1)
 
     def trainable_state(self) -> dict:
         return {k: v.detach().clone() for k, v in self.named_parameters() if v.requires_grad}
@@ -196,9 +200,13 @@ def train_lora(model: nn.Module, images: PCamImages, train_idx, y, eval_idx, y_e
         opt.step()
         sched.step()
         step += 1
-        with torch.no_grad():  # EMA of trainable weights
+        # EMA of trainable weights with the num_updates warm-up of tf.train.ExponentialMovingAverage,
+        # decay = min(decay, (1 + n) / (10 + n)): short runs (the sweep rungs) are not dominated by the start
+        # weights. https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage
+        d = min(ema_decay, (1 + step) / (10 + step))
+        with torch.no_grad():
             for k, v in model.trainable_state().items():
-                ema[k].mul_(ema_decay).add_(v, alpha=1 - ema_decay)
+                ema[k].mul_(d).add_(v, alpha=1 - d)
         if step % log_every == 0:
             log.info("lora seed %d step %d/%d loss %.4f lr %.2e %.1f img/s", seed, step, total, loss.item(),
                      sched.get_last_lr()[0], step * batch / (time.time() - t0))
@@ -223,11 +231,14 @@ def predict_with_state(model: nn.Module, state: dict | None, images: PCamImages,
     if state is not None:
         load_trainable(model, state)
     model.eval()
-    out = []
+    out, idx = [], np.asarray(idx)
     for s in range(0, len(idx), batch):
-        x = torch.from_numpy(images.read(np.sort(idx[s : s + batch]))).permute(0, 3, 1, 2)
+        chunk = idx[s : s + batch]
+        order = np.argsort(chunk)  # HDF5 reads need increasing indices; results go back in the caller's order
+        x = torch.from_numpy(images.read(chunk[order])).permute(0, 3, 1, 2)
         with torch.autocast(device_type=torch.device(device).type, dtype=torch.bfloat16):
-            out.append(model(d4_view(x, view).to(device)).float().cpu())
+            logits = model(d4_view(x, view).to(device)).float().cpu()
+        out.append(logits[torch.from_numpy(np.argsort(order))])
     load_trainable(model, current)
     return torch.cat(out).numpy()
 

@@ -243,6 +243,19 @@ def base_arm(name: str) -> str:
     return read_ladder()["configs"].get(name, {}).get("base_arm", name)
 
 
+def nested_keep(ctx, X, cfg: dict, outer: int, threshold: float) -> np.ndarray:
+    """Training patches of outer fold `outer`'s training set that survive OOF label cleaning: inner
+    slide-grouped OOF predictions over the other folds flag |y - p| > threshold. No label of fold `outer`
+    is used, so the mask can train a model that is then scored on fold `outer` (S3b; LoRA on fold 0)."""
+    y, folds = ctx.y_train, ctx.folds
+    tr = np.flatnonzero(folds != outer)
+    inner_folds = folds[tr] - (folds[tr] > outer)  # renumber the four remaining folds 0..3
+    head_kw = {"C": cfg["C"]} if cfg["head"] == "logreg" else {}
+    inner = ex.cv_oof(cfg["head"], X[tr], y[tr], inner_folds, seeds=_seeds_for(cfg), **head_kw)
+    p = expit(inner.astype(np.float64)).mean(0)
+    return tr[np.abs(y[tr] - p) <= threshold]
+
+
 def step_s3b(ctx, threshold: float = 0.9) -> dict:
     """PANDA-1st-place-style cleaning, nested so evaluation labels are never altered: inside each outer
     training set, inner slide-grouped OOF predictions flag patches with |y - p| > threshold; the head
@@ -256,12 +269,8 @@ def step_s3b(ctx, threshold: float = 0.9) -> dict:
     oof = np.zeros((len(seeds), len(y)), np.float32)
     removed = {}
     for f in range(folds.max() + 1):
-        tr = np.flatnonzero(folds != f)
-        inner_folds = folds[tr] - (folds[tr] > f)  # renumber the four remaining folds 0..3
-        inner = ex.cv_oof(cfg["head"], Xtr[tr], y[tr], inner_folds, seeds=seeds, **head_kw)
-        p = expit(inner.astype(np.float64)).mean(0)
-        keep = tr[np.abs(y[tr] - p) <= threshold]
-        removed[f] = float(1 - len(keep) / len(tr))
+        keep = nested_keep(ctx, Xtr, cfg, f, threshold)
+        removed[f] = float(1 - len(keep) / int((folds != f).sum()))
         for si, seed in enumerate(seeds):
             oof[si, folds == f] = _fit_cfg(cfg, Xtr[keep], y[keep], seed).logits(Xtr[folds == f])
         log.info("S3b fold %d: removed %.3f%% of training patches", f, 100 * removed[f])

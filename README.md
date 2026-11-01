@@ -17,7 +17,7 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 
 ![Pipeline](reports/figures/pipeline.png)
 
-## Highlights (release 1)
+## Highlights
 <!-- HIGHLIGHTS:START -->
 - ✅ **Exact reproduction.** Our Hibou-L probe scores **0.9394 ± 0.0007** validation balanced accuracy (BA; 5 seeds), against the published **0.939** ([eva](https://github.com/kaiko-ai/eva)). Our remote-code-free model matches Hibou's own code to a cosine of 1.000000.
 - ✅ **Incumbent under cross-validation** over 216 training slides: OOF BA 0.950 (95% CI 0.937–0.960); validation 0.937 (95% CI 0.889–0.962).
@@ -30,11 +30,11 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 <!-- HIGHLIGHTS:END -->
 
 **Release status:**
-- **Release 1:** the reproduced model, its controls and the no-training baselines. Published with the [paper (PDF)](reports/paper/paper.pdf), [reports](reports/experiments_summary.md), the [interactive explorer](https://burnycoder.github.io/better-cancer-classification-with-machine-learning/) and the [Hugging Face collection](https://huggingface.co/collections/BurnyCoder/pcam-hill-climbing-of-hibou-l-6ae69845aceb3bbab4777782).
+- **Current release: 3.** Published with the [paper (PDF)](reports/paper/paper.pdf), [reports](reports/experiments_summary.md), the [interactive explorer](https://burnycoder.github.io/better-cancer-classification-with-machine-learning/) and the [Hugging Face collection](https://huggingface.co/collections/BurnyCoder/pcam-hill-climbing-of-hibou-l-6ae69845aceb3bbab4777782) (frozen-probe heads and the fine-tuned LoRA model).
 - **Release order** (each release is pushed with an updated paper, reports, README, site and Hugging Face):
   1. ✅ Reproduced Hibou-L with cheap controls and no-training baselines.
-  2. ⏳ *Training now:* the **Hibou-L-only improvement** ladder (S1 representation, S2 head, S3 rotation/flip averaging, S3b label cleaning, S5 LoRA, S5b weight averaging), compared with the original Hibou-L, the cheap controls and the published baselines.
-  3. Control models: DINOv2-L with natural-image weights, randomly initialised ViT-L, and the augmentation-matched frozen control (H4).
+  2. ✅ The **Hibou-L-only improvement** ladder (S1 representation, S2 head, S3 rotation/flip averaging, S3b label cleaning, S5 LoRA, S5b weight averaging), compared with the original Hibou-L, the cheap controls and the published baselines.
+  3. ✅ Control models: DINOv2-L with natural-image weights, randomly initialised ViT-L, and the augmentation-matched frozen control (H4).
 - **Postponed to a later day:**
   - baseline models: the 9 other foundation models (B\*) and ConvNeXt-T;
   - ablations, including those that need no training;
@@ -101,17 +101,28 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 
 ![Published baselines](reports/figures/published_baselines.png)
 
+**Example outputs.** Validation patches drawn at random (seed 0) from four groups defined by whether the original probe and the LoRA model are right, with each model's predicted tumour probability. The baseline is the original probe; the controls are DINOv2-L with natural-image weights and the colour histogram.
+
+![Example outputs](reports/figures/examples.png)
+
+**LoRA training.** Training loss (single minibatches every 50 steps, with a running mean) and the checkpoint-selection score of the EMA weights.
+
+![LoRA training](reports/figures/lora_training.png)
+
 **In plain words.** The highlights above give the numbers.
 - **Reproduction.** Our re-implementation of the published Hibou-L probe matches the published validation score.
-- **Controls.** A model trained on shuffled labels is at chance. A colour-only classifier is well above chance but far below Hibou-L.
+- **What got better.** Fine-tuning Hibou-L with LoRA is the only change that clearly improves on the original on the validation slides. A frozen model trained on exactly the same augmented images does not improve, so the gain comes from adapting the network, not from the augmentation.
+- **What did not help.** Reading features from other layers or the patch centre, other classifier heads, and averaging over rotated copies did not improve validation. Logistic regression won on cross-validation by a small margin, but not on validation. The MLP head made validation clearly worse, and rotation averaging slightly worse. Removing suspected mislabelled training patches helped on cross-validation but not measurably on validation. Scaling the LoRA update down (WiSE) made it worse.
+- **Controls.** A model trained on shuffled labels is at chance. A colour-only classifier is well above chance but far below Hibou-L. With the same architecture, natural-image weights are far below pathology weights, and random weights are about as good as colour alone.
 - **Comparison with published models.** These no-training baselines are context only; the setups are not protocol-matched with later steps of this study.
+- **Not yet known.** Whether the LoRA gain holds on the official test split and on hospitals outside the training data: both stay sealed for now.
 
 ## Method
 
 | | |
 |---|---|
 | **Data** | PCam official splits ([Veeling 2018](https://arxiv.org/abs/1806.03962); [Zenodo 2546921](https://zenodo.org/records/2546921)). Patches are 96×96 px at about 0.97 µm/px; the label is tumour in the centre 32×32 px. Split sizes and slide counts are in the highlights; splits are slide-disjoint (verified). |
-| **Audit** | Exact pixel-hash duplicates were checked within and across splits. **Test slide `camelyon16_test_049` is a pixel-identical copy of train slide `camelyon16_train_tumor_036`.** A sensitivity analysis without that slide was added while the test split was still sealed. |
+| **Audit** | Exact pixel-hash duplicates were checked within and across splits. **33 test images from slide `camelyon16_test_049` are pixel-identical to train images from slide `camelyon16_train_tumor_036`, at the same coordinates, which indicates a duplicate scan.** A sensitivity analysis without that slide was added while the test split was still sealed. |
 | **Model** | Hibou-L (pinned revision), loaded into transformers' native `Dinov2WithRegistersModel` with no remote code. It is checked numerically against Hibou's own code (see highlights). Embeddings are computed in bf16. |
 | **Baseline protocol** | The eva PCam config exactly ([config](https://github.com/kaiko-ai/eva/blob/main/configs/vision/pathology/offline/classification/patch_camelyon.yaml)): resize to 224, CLS token, `nn.Linear` + BCE, AdamW, early stopping on valid BA, 5 seeds. |
 | **Selection protocol** | 5 slide-grouped folds of train, stratified by tumour slides. Out-of-fold predictions, fixed-step heads, full-train refits for validation. |
@@ -191,7 +202,15 @@ uv run python main.py access          # freeze the candidate pool
 uv run python main.py embed --backbones hibou_l --splits train valid
 uv run python main.py stage-a --parts h2 s0 controls
 uv run python main.py published       # no-training baselines (eva leaderboard at a pinned commit + literature)
+uv run python main.py stage-b --parts s1 s2   # frozen-feature ladder: representation, head
+uv run python main.py embed-tta       # rotated/flipped views for S3
+uv run python main.py stage-b --parts s3 s3b  # rotation/flip averaging, label cleaning
+uv run python main.py stage-c --parts s5 s5b  # LoRA fine-tuning, WiSE scaling
+uv run python main.py embed --backbones dinov2_reg_l random_vitl_reg4 --splits train valid
+uv run python main.py stage-a --parts scan --backbones dinov2_reg_l random_vitl_reg4  # control models
+uv run python main.py stage-c --parts h4      # augmentation-matched frozen control
 uv run python main.py report          # tables, figures, reports, README blocks, site data, paper PDF
+uv run python main.py release --title "..."   # report + commit + PR + merge + Hugging Face upload
 ```
 Reproducing the parity check against kaiko-eva is described in [docs/usage.md](docs/usage.md).
 

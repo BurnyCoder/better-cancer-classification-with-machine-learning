@@ -124,6 +124,22 @@
         ]
       },
       "head": "linear"
+    },
+    "S1_f_best_plus_centre_view": {
+      "representation": {
+        "parts": [
+          [
+            -1,
+            "cls"
+          ]
+        ],
+        "center": false,
+        "views": [
+          "full",
+          "center64"
+        ]
+      },
+      "head": "linear"
     }
   }
 }

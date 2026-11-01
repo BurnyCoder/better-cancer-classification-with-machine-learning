@@ -1,6 +1,13 @@
 {
   "incumbent": "S0_hibou_l_cls_linear",
-  "history": [],
+  "history": [
+    {
+      "step": "S1_representation",
+      "winner": "S1_f_best_plus_centre_view",
+      "adopted": false,
+      "incumbent_after": "S0_hibou_l_cls_linear"
+    }
+  ],
   "configs": {
     "S0_hibou_l_cls_linear": {
       "representation": {

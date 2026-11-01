@@ -43,8 +43,8 @@ def splits(ctx, clean: bool = True) -> dict:
     name, cfg = None, {}
     if clean and read_ladder().get("incumbent"):
         name, _, _, cfg = incumbent(hibou_only=True)
-    if "clean_threshold" in cfg:
-        p = expit(ex.load_preds(base_arm(name))["oof"].astype(np.float64)).mean(0)
+    if "clean_threshold" in cfg:  # the mask's source arm, not S5_lora's own fold-0-only predictions
+        p = expit(ex.load_preds(cfg.get("clean_source", base_arm(name)))["oof"].astype(np.float64)).mean(0)
         train = train[np.abs(ctx.y_train[train] - p[train]) <= cfg["clean_threshold"]]
     fold0 = np.flatnonzero(ctx.folds == 0)
     ckpt, _ = train_test_split(fold0, train_size=10_000, stratify=ctx.y_train[fold0], random_state=0)

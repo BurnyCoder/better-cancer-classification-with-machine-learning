@@ -30,6 +30,12 @@
       "winner": "S5_lora",
       "adopted": true,
       "incumbent_after": "S5_lora"
+    },
+    {
+      "step": "S5b_weight_space",
+      "winner": "S5b_wise_0.75",
+      "adopted": false,
+      "incumbent_after": "S5_lora"
     }
   ],
   "configs": {

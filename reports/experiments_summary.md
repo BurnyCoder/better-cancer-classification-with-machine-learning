@@ -29,6 +29,7 @@ No ladder step decided yet.
 ## Experiments
 
 - [01_stage_a_reproduction_controls](experiments/01_stage_a_reproduction_controls.md)
+- [02_ladder_hibou_l](experiments/02_ladder_hibou_l.md)
 
 ## Glossary
 

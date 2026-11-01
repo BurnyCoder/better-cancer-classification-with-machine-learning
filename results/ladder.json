@@ -35,6 +35,80 @@
         ]
       },
       "head": "linear"
+    },
+    "S1_c_dinov2_last4": {
+      "representation": {
+        "parts": [
+          [
+            21,
+            "cls"
+          ],
+          [
+            22,
+            "cls"
+          ],
+          [
+            23,
+            "cls"
+          ],
+          [
+            24,
+            "cls"
+          ],
+          [
+            24,
+            "mean"
+          ]
+        ],
+        "center": false,
+        "views": [
+          "full"
+        ]
+      },
+      "head": "linear"
+    },
+    "S1_d_spread_6_12_18_24": {
+      "representation": {
+        "parts": [
+          [
+            6,
+            "cls"
+          ],
+          [
+            6,
+            "mean"
+          ],
+          [
+            12,
+            "cls"
+          ],
+          [
+            12,
+            "mean"
+          ],
+          [
+            18,
+            "cls"
+          ],
+          [
+            18,
+            "mean"
+          ],
+          [
+            24,
+            "cls"
+          ],
+          [
+            24,
+            "mean"
+          ]
+        ],
+        "center": false,
+        "views": [
+          "full"
+        ]
+      },
+      "head": "linear"
     }
   }
 }

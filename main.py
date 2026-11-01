@@ -164,6 +164,18 @@ def cmd_stage_b(args):
             steps[part](ctx)
 
 
+def cmd_stage_c(args):
+    """Stage C: S5 LoRA (sweep + 3 final seeds), S5b weight space, H4 augmented-feature control,
+    ConvNeXt-T end-to-end baseline."""
+    from pcam_hc import stage_c
+    from pcam_hc.experiments import Context
+
+    ctx = Context()
+    for part in args.parts:
+        {"s5": stage_c.step_s5, "s5b": stage_c.step_s5b, "h4": stage_c.h4_control,
+         "convnext": stage_c.convnext_baseline}[part](ctx)
+
+
 def cmd_wilds_prepare(args):
     """Camelyon17-WILDS: count checks vs. the paper, fixed subsample, decoded pixels, hospital check."""
     from pcam_hc.wilds import prepare
@@ -186,7 +198,7 @@ def cmd_report(args):
 
 PHASES = {"download": cmd_download, "verify": cmd_verify, "access": cmd_access, "embed": cmd_embed,
           "embed-tta": cmd_embed_tta, "wilds-prepare": cmd_wilds_prepare, "publish": cmd_publish,
-          "parity": cmd_parity, "stage-a": cmd_stage_a, "stage-b": cmd_stage_b, "report": cmd_report}
+          "parity": cmd_parity, "stage-a": cmd_stage_a, "stage-b": cmd_stage_b, "stage-c": cmd_stage_c, "report": cmd_report}
 
 
 def main():
@@ -200,7 +212,7 @@ def main():
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--arms", nargs="+", default=None, help="publish: arm names (default: all publishable)")
     parser.add_argument("--parts", nargs="+", default=["h2", "s0", "controls", "scan"],
-                        help="stage-a: h2 s0 controls scan; stage-b: s1 s2 s3 s3b s4")
+                        help="stage-a: h2 s0 controls scan; stage-b: s1 s2 s3 s3b s4; stage-c: s5 s5b h4 convnext")
     args = parser.parse_args()
     setup_logging(args.phase)
     PHASES[args.phase](args)

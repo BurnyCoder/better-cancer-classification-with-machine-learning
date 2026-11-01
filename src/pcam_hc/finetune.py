@@ -188,7 +188,7 @@ def train_lora(model: nn.Module, images: PCamImages, train_idx, y, eval_idx, y_e
         idx = np.sort(order[step * batch : (step + 1) * batch])
         x = augment(torch.from_numpy(images.read(idx)).permute(0, 3, 1, 2).to(device), sigma, g)
         model.train()
-        with torch.autocast("cuda", dtype=torch.bfloat16):
+        with torch.autocast(device_type=torch.device(device).type, dtype=torch.bfloat16):
             loss = loss_fn(model(x), yt[idx].to(device))
         opt.zero_grad(set_to_none=True)
         loss.backward()
@@ -225,7 +225,7 @@ def predict_with_state(model: nn.Module, state: dict | None, images: PCamImages,
     out = []
     for s in range(0, len(idx), batch):
         x = torch.from_numpy(images.read(np.sort(idx[s : s + batch]))).permute(0, 3, 1, 2)
-        with torch.autocast("cuda", dtype=torch.bfloat16):
+        with torch.autocast(device_type=torch.device(device).type, dtype=torch.bfloat16):
             out.append(model(d4_view(x, view).to(device)).float().cpu())
     load_trainable(model, current)
     return torch.cat(out).numpy()

@@ -73,6 +73,31 @@ def examples_figure() -> dict | None:
     return out
 
 
+def hed_strength(n: int = 512, sigma: float = 0.05) -> dict | None:
+    """Measured strength of the HED jitter used by LoRA and H4 on the first n validation patches; cached
+    in results/hed_strength.json."""
+    path = PATHS.results / "hed_strength.json"
+    if path.exists():
+        return json.loads(path.read_text())
+    import torch
+
+    from pcam_hc.data import PCamImages
+    from pcam_hc.finetune import hed_jitter
+
+    try:
+        x = torch.as_tensor(PCamImages("valid").read(np.arange(n))).permute(0, 3, 1, 2).contiguous()
+    except (FileNotFoundError, OSError):
+        return None
+    one = torch.ones(n, 1, 3)
+    rand = hed_jitter(x, sigma, torch.Generator().manual_seed(0))
+    shift = hed_jitter(x, sigma, alpha=one, beta=one * sigma)
+    out = {"sigma": sigma, "n_patches": n, "beta_max_optical_density": sigma * float(-np.log(1e-6)),
+           "mean_abs_pixel_change_random": float((rand.float() - x.float()).abs().mean()),
+           "mean_rgb_clean": float(x.float().mean()), "mean_rgb_beta_plus_sigma": float(shift.float().mean())}
+    path.write_text(json.dumps(out, indent=2))
+    return out
+
+
 def lora_curve() -> dict | None:
     """Per-50-step training loss of the final S5 LoRA run, from results/ or, once, from its log."""
     path, arm = PATHS.results / "lora_train_curve.json", PATHS.results / "arms" / "S5_lora.json"

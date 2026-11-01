@@ -7,6 +7,7 @@ them to reports/experiments/. Re-running `main.py report` regenerates them after
 """
 
 import json
+from collections import Counter
 
 from pcam_hc.config import PATHS, PROJECT_ROOT
 
@@ -62,7 +63,7 @@ def render_stage_a() -> str | None:
         f"- **Exact duplicates across splits:** train–test {dv['cross_duplicates_train_test']}, train–valid "
         f"{dv['cross_duplicates_train_valid']}, valid–test {dv['cross_duplicates_valid_test']}.",
         f"  - The train–test duplicates all come from slides {', '.join(dv.get('cross_duplicate_slides_train_test', [])) or 'camelyon16_test_049 / camelyon16_train_tumor_036'}, at identical slide coordinates.",
-        "  - CAMELYON16 notes list test_049 as a duplicate slide removed from the official release, but PCam contains it.",
+        "  - Secondary sources (the eva documentation) report a duplicate CAMELYON16 test slide that was removed from the official release; PCam still contains test_049.",
         "  - Decision while test was still sealed: report every test metric also without that slide (deviation log).",
         "",
         "## Reproducing Hibou-L (H2 gate)",
@@ -117,7 +118,10 @@ def render_stage_a() -> str | None:
             "- **Hospital check** (L1 distance of mean colour histograms):",
             f"  - The assumed RUMC/UMCU split of PCam slides is far more separated ({hc['pcam_assumed_hospital_split_l1']:.2f}) than a random slide split ({hc['pcam_random_slide_split_l1']:.2f}), which supports the slide-numbering assumption.",
             f"  - WILDS centre 2 (the official WILDS *test* hospital) is closest to UMCU ({hc['l1_distance_to_pcam_hospital']['2']['UMCU']:.2f} vs. {hc['l1_distance_to_pcam_hospital']['2']['RUMC']:.2f}). It is therefore a Camelyon16 source hospital, not out-of-distribution for PCam-trained models.",
-            "  - The primary OOD pool is centres 0, 1, 4 (CWZ, RST, LPON; arXiv:2404.11161).",
+            "  - The pre-registered primary OOD pool is centres 0, 1, 4, reported as CWZ, RST, LPON (arXiv:2404.11161 v1). This mapping is uncertain: "
+            "centres 0, 3 and 4 share one scanner ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373), §4.1), which with the per-hospital scanners in "
+            "[Litjens et al. 2018](https://academic.oup.com/gigascience/article/7/6/giy065/5026175) places RUMC, a Camelyon16 hospital, among centres 0, 3, 4. "
+            "The colour check cannot separate them. The pool is re-examined and logged before WILDS is unsealed.",
             "",
         ]
     lines += [
@@ -225,12 +229,18 @@ def ladder_rows() -> list[dict]:
     return rows
 
 
+def ref_label(cmp: dict) -> str:
+    """OOF reference of a paired comparison with its patch count, e.g. 'original (262,144)'."""
+    ref = "original" if cmp["reference_oof"] == "S0_hibou_l_cls_linear" else cmp["reference_oof"]
+    return f"{ref} ({cmp['oof_patches']:,})"
+
+
 def ladder_table_md(rows: list[dict]) -> str:
-    out = ["| Step | Classifier | OOF BA [95% CI] | Δ OOF vs original [95% CI] | sign-flip p | Valid BA | Δ valid vs original |",
-           "|---|---|---|---|---|---|---|"]
+    out = ["| Step | Classifier | OOF BA [95% CI] | OOF reference (patches) | Δ OOF vs reference [95% CI] | sign-flip p | Valid BA | Δ valid vs original |",
+           "|---|---|---|---|---|---|---|---|"]
     for r in rows:
         d, v = r["cmp"]["oof"], r["cmp"]["valid"]
-        out.append(f"| {r['step']} | `{r['arm']}` | {_ba(r['oof'])} | {100 * d['delta_ba']:+.2f} pt [{100 * d['ci_ba'][0]:+.2f}, "
+        out.append(f"| {r['step']} | `{r['arm']}` | {_ba(r['oof'])} | {ref_label(r['cmp'])} | {100 * d['delta_ba']:+.2f} pt [{100 * d['ci_ba'][0]:+.2f}, "
                    f"{100 * d['ci_ba'][1]:+.2f}] | {d['p_signflip']:.3g} | {r['valid']['ba']:.4f} | {100 * v['delta_ba']:+.2f} pt |")
     return "\n".join(out)
 
@@ -281,6 +291,35 @@ def seed_offset() -> dict | None:
     return {"cmp": c, "valid_seed_sd": s0["valid"]["seed_sd"]["ba"], "oof_seed_sd": s0["oof"]["seed_sd"]["ba"]} if c and s0 else None
 
 
+def review_findings() -> list[str]:
+    """Code-review findings on S5 and H4 (2026-11-01), every number from results/. Shared by the ladder report
+    and the paper's limitations. The code is fixed for future runs; the S5/H4/S5b results above predate the fixes."""
+    out = []
+    if m := _j("lora_mask_audit.json"):
+        out.append(f"Cleaning mask: S5 and H4 trained on folds 1–4 minus {m['dropped_by_used_mask']:,} patches flagged by S3b's full-train OOF "
+                   f"predictions, whose heads also saw fold-0 labels. S3b's nested fold-0 mask drops {m['dropped_by_nested_mask']:,}; "
+                   f"{m['patches_trained_differently']:,} of {m['lora_train_candidates']:,} patches differ. This is a small label leak into the "
+                   "fold-0 comparisons (S5 vs. the original or S3b, S5b selection); the validation comparisons use no validation label and are unaffected.")
+    if h := _j("hed_strength.json"):
+        out.append(f"Stain augmentation strength: σ = {h['sigma']} in scikit-image stain units shifts each stain by up to "
+                   f"{h['beta_max_optical_density']:.2f} optical density; random draws change pixels by {h['mean_abs_pixel_change_random']:.0f}/255 "
+                   f"on average, and the largest shift darkens mean RGB from {h['mean_rgb_clean']:.0f} to {h['mean_rgb_beta_plus_sigma']:.0f}. "
+                   "This is stronger than the name \"HED-light\" suggests (Tellez et al. do not state units). H4 is matched to LoRA as pre-registered, "
+                   "but its frozen head sees only recoloured patches and is scored on clean ones, which may widen the LoRA − H4 gap.")
+    if s := _j("lora_sweep.json"):
+        rungs = {}  # budget -> checkpoint BAs of the configs run at that budget
+        for k, v in s["runs"].items():
+            rungs.setdefault(float(k.rsplit("=", 1)[1]), []).append(v["ckpt_ba"])
+        first, top = rungs[min(rungs)], sorted(rungs[max(rungs)], reverse=True)
+        ties = max(Counter(round(v, 8) for v in first).values())
+        out.append(f"LoRA sweep: the EMA (decay 0.999, no warm-up) still held most of the starting weights at the short rungs; "
+                   f"{ties} of {len(first)} first-rung configs scored identically, and the final pick won by {100 * (top[0] - top[1]):.3f} pt "
+                   "(about one of the 10k checkpoint patches), so the lr/rank choice is close to arbitrary.")
+    out.append("Also fixed: the LoRA adapter initialisation is now seeded, the LoRA head runs in fp32 (logits were bf16, which coarsens "
+               "NLL and ECE but not BA), predictions are order-safe for unsorted indices, and test images, labels and meta are guarded by the seal.")
+    return out
+
+
 def ladder_findings() -> list[str]:
     """Headline findings of releases 2+, one sentence each, every number from results/. Shared by the
     paper's abstract and conclusion and the README highlights."""
@@ -320,8 +359,9 @@ def _later_learnings() -> list[str]:
         same = s3["comparisons"]["S3_d4_tta"]  # TTA vs identity view, scored by the very same heads
         lines.append(f"- **S3 D4 TTA does not help.** Same heads with and without 8-view averaging: Δ OOF (train-64k) "
                      f"{d(c, 'oof')}, p {c['oof']['p_signflip']:.2g}; Δ valid {d(same, 'valid')}, a slight loss. "
-                     "This matches the pre-registered prediction (≤ 0.3 pt) and Hibou-L's rotation/flip pretraining "
-                     "augmentation ([arXiv:2412.11938](https://arxiv.org/abs/2412.11938)).")
+                     "This matches the pre-registered prediction (≤ 0.3 pt) and Hibou-L's rotation/flip pretraining augmentation "
+                     "([Hibou §3.1.1](https://arxiv.org/abs/2406.05074)); Hibou-L was also the most rotation-invariant FM by cosine "
+                     "distance in [arXiv:2412.11938](https://arxiv.org/abs/2412.11938).")
     if so := seed_offset():
         lines.append(f"- **Seed-count confounder in Δ valid vs the original.** The original's validation BA is a 5-seed average, "
                      f"and its per-seed SD is {100 * so['valid_seed_sd']:.2f} pt on validation (vs. {100 * so['oof_seed_sd']:.2f} pt "
@@ -393,6 +433,8 @@ def render_ladder() -> str | None:
     else:
         lines.append("- No step decided yet; candidates of the current step are still being trained.")
     lines += _s2_learnings(steps) + _later_learnings()
+    if rf := review_findings():
+        lines += ["", "## Code-review findings on S5 and H4 (fixed in code; these results predate the fixes)"] + [f"- {x}" for x in rf]
     lines += ["", "## Notes",
               "- **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.",
               "- **Negative results** are kept and reported like positive ones.", "",

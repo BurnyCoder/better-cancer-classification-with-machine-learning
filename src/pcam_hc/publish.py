@@ -45,6 +45,11 @@ matrices of the attention projections in all 24 blocks plus the linear head; bes
 holds the LP-FT start head, and `config.json` holds the pinned Hibou-L revision, PEFT settings and preprocessing. Rebuild it
 with the repository's `pcam_hc.stage_c.new_model` and `load_state_dict(..., strict=False)`. Hibou-L itself is not
 redistributed: accept its licence on Hugging Face first.
+
+Known issues of this run (found by code review after training): its training-set cleaning mask used predictions that
+saw fold-0 labels, its stain augmentation is stronger than "HED-light" suggests, and its lr/rank choice is close to
+arbitrary. Its validation result is unaffected by the first issue. Details are in the repository's
+`reports/experiments/02_ladder_hibou_l.md`.
 """ if lora else "")
     return f"""---
 license: apache-2.0

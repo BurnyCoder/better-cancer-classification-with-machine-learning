@@ -38,13 +38,13 @@ def fmt_ci(block: dict, key: str = "ba") -> str:
 
 def arms_table(records: dict) -> str:
     """Markdown table of every arm: seed-averaged metric with slide-bootstrap BCa 95% CI, seed SD."""
-    rows = ["| Arm | Backbone(s) | Head | Dim | OOF BA [95% CI] | Valid BA [95% CI] | Valid BA seed SD | Valid AUROC | Publishable |",
-            "|---|---|---|---|---|---|---|---|---|"]
+    rows = ["| Arm | Backbone(s) | Head | Dim | OOF BA [95% CI] | OOF patches | Valid BA [95% CI] | Valid BA seed SD | Valid AUROC | Publishable |",
+            "|---|---|---|---|---|---|---|---|---|---|"]
     for name, r in records.items():
         oof = fmt_ci(r["oof"]["seed_avg"]) if "oof" in r else "—"
         val = r["valid"]
         rows.append(f"| `{name}` | {', '.join(PRETTY.get(b, b) for b in r['backbones']) or '—'} | {r.get('head', '—')} | "
-                    f"{r.get('dim', '—')} | {oof} | {fmt_ci(val['seed_avg'])} | {val['seed_sd']['ba']:.4f} | "
+                    f"{r.get('dim', '—')} | {oof} | {r.get('oof_subset', 'all train') if 'oof' in r else '—'} | {fmt_ci(val['seed_avg'])} | {val['seed_sd']['ba']:.4f} | "
                     f"{val['seed_avg']['auroc']:.4f} | {'yes' if r.get('publishable') else 'no (aggregates only)'} |")
     return "\n".join(rows)
 
@@ -194,8 +194,9 @@ def ladder_figure() -> None:
             ax.plot(100 * d["delta_ba"], i + dy, "o", color=color, ms=7, mec=SURFACE, mew=1.5,
                     label=None if key in labelled else label)
             labelled.add(key)
-    ax.set_yticks(range(len(rows)), [f"{r['step']}: {r['arm']}" for r in rows], color=INK, fontsize=8)
-    ax.set_xlabel("Δ balanced accuracy vs. original Hibou-L probe (percentage points, 95% slide-bootstrap CI)", color=INK2)
+    ref = lambda c: "" if c["reference_oof"] == "S0_hibou_l_cls_linear" else f"\n(OOF vs {c['reference_oof']})"  # noqa: E731
+    ax.set_yticks(range(len(rows)), [f"{r['step']}: {r['arm']}{ref(r['cmp'])}" for r in rows], color=INK, fontsize=8)
+    ax.set_xlabel("Δ balanced accuracy, pp, 95% slide-bootstrap CI (vs. the original Hibou-L probe unless noted)", color=INK2)
     _style(ax)
     ax.legend(frameon=False, fontsize=8.5, loc="best")
     ax.set_title("Improvement ladder: each trained classifier vs. the original", color=INK, fontsize=11, loc="left")
@@ -226,13 +227,14 @@ def site_data(records: dict) -> None:
     load = lambda f: json.loads((PATHS.results / f).read_text()) if (PATHS.results / f).exists() else None  # noqa: E731
     final = load("final/summary.json")
     pub = load("published_baselines.json")
-    from pcam_hc.report_experiments import ladder_rows
+    from pcam_hc.report_experiments import ladder_rows, ref_label
 
     ladder_out = [{"arm": r["arm"], "step": r["step"], "description": r["description"],
                    "oof_ba": r["oof"]["ba"], "delta": r["cmp"]["oof"]["delta_ba"], "lo": r["cmp"]["oof"]["ci_ba"][0],
                    "hi": r["cmp"]["oof"]["ci_ba"][1], "p": r["cmp"]["oof"]["p_signflip"],
                    "valid_ba": r["valid"]["ba"], "valid_delta": r["cmp"]["valid"]["delta_ba"],
-                   "valid_lo": r["cmp"]["valid"]["ci_ba"][0], "valid_hi": r["cmp"]["valid"]["ci_ba"][1]} for r in ladder_rows()]
+                   "valid_lo": r["cmp"]["valid"]["ci_ba"][0], "valid_hi": r["cmp"]["valid"]["ci_ba"][1],
+                   "ref": ref_label(r["cmp"])} for r in ladder_rows()]
     out = {"arms": arms_out, "steps": steps, "gate": load("h2_gate.json"), "ladder": load("ladder.json"),
            "ladder_rows": ladder_out,
            "final": final, "published": pub["eva_leaderboard"]["rows"] if pub else [],
@@ -260,7 +262,7 @@ def highlights() -> str | None:
         f"Our remote-code-free model matches Hibou's own code to a cosine of {parity['fp32_cpu']['mean_cosine']:.6f}.",
         f"- ✅ **Incumbent under cross-validation** over {dv['train_slides']} training slides: OOF BA {ci(s0['oof']['seed_avg'])}; validation {ci(s0['valid']['seed_avg'])}.",
         f"- ✅ **Controls behave as expected.** Shuffled labels: {sh['oof']['seed_avg']['ba']:.3f} (chance). Colour histogram only: {ci(ch['oof']['seed_avg'])}. Colour carries signal, but far less than Hibou-L.",
-        f"- ⚠️ **Data leak found in PCam.** {dv['cross_duplicates_train_test']} distinct test images are pixel-identical to train images. All come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, at identical slide coordinates, which indicates a duplicate scan. CAMELYON16 notes list test_049 as a duplicate slide removed from the official release, but it is still in PCam. "
+        f"- ⚠️ **Data leak found in PCam.** {dv['cross_duplicates_train_test']} distinct test images are pixel-identical to train images. All come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, at identical slide coordinates, which indicates a duplicate scan. Secondary sources (the eva documentation) report a duplicate CAMELYON16 test slide removed from the official release; PCam still contains test_049. "
         "Every test result will also be reported without it (decided while test was sealed).",
         f"- ⚠️ **Validation split is small.** It has {dv['valid_slides']} slides, {dv['valid_tumour_slides']} with tumour, so its CIs are "
         f"{(s0['valid']['seed_avg']['ci_ba'][1] - s0['valid']['seed_avg']['ci_ba'][0]) / (s0['oof']['seed_avg']['ci_ba'][1] - s0['oof']['seed_avg']['ci_ba'][0]):.1f}× wider than the train CV ones. "
@@ -273,7 +275,8 @@ def highlights() -> str | None:
     if wl:
         d = wl["hospital_check"]["l1_distance_to_pcam_hospital"]["2"]
         out.append(f"- ⚠️ **The official Camelyon17-WILDS test hospital is not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 {d['UMCU']:.2f} vs. {d['RUMC']:.2f} to RUMC). "
-                   "Our out-of-hospital check therefore uses CWZ, RST and LPON.")
+                   "The pre-registered out-of-hospital pool is centres 0, 1 and 4 (reported as CWZ, RST, LPON), but scanner metadata "
+                   "([Tomar et al. 2024](https://arxiv.org/abs/2411.09373)) suggest RUMC may be among centres 0, 3, 4; the pool is re-examined before WILDS is unsealed.")
     out.append(f"- **Data:** train {dv['train_n']:,} / valid {dv['valid_n']:,} / test {dv['test_n']:,} patches from {dv['train_slides']} / {dv['valid_slides']} / {dv['test_slides']} slides; no slide is shared between splits.")
     return "\n".join(out)
 
@@ -298,8 +301,9 @@ def build() -> None:
     stage_a_figure(records)
     pipeline_figure()
     ladder_figure()
-    from pcam_hc.report_examples import examples_figure, lora_curve_figure
+    from pcam_hc.report_examples import examples_figure, hed_strength, lora_curve_figure
 
+    hed_strength()
     examples_figure()
     lora_curve_figure()
     site_data(records)
@@ -307,7 +311,7 @@ def build() -> None:
     if gate_path.exists():
         g = json.loads(gate_path.read_text())
         gate = (f"H2 reproduction gate: valid BA {g['valid_ba_seed_mean']:.4f} ± {g['valid_ba_seed_sd']:.4f} "
-                f"(5 seeds) vs. eva's published 0.939 ± 0.010 → **{'pass' if g['pass'] else 'FAIL'}**.")
+                f"(5 seeds) vs. eva's published 0.939 (pre-registered gate ±{g['tolerance']:.3f}) → **{'pass' if g['pass'] else 'FAIL'}**.")
         (TAB_DIR / "h2_gate.md").write_text(gate + "\n", encoding="utf-8")
         from pcam_hc.report_experiments import ladder_rows, ladder_table_md
 

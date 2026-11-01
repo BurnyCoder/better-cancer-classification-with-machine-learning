@@ -306,6 +306,23 @@ def build_paper() -> str | None:
     for k, text, url in REFS:
         a(f"[{CITE[k]}] {text} #link(\"{url}\")[{url}] \\")
     a("")
+    a("= Appendix")
+    if sw := _j("lora_sweep.json"):
+        a("== LoRA hyperparameter sweep")
+        a("Successive halving over learning rate × rank on the train-64k patches of folds 1–4; each rung scores the EMA weights on the 10k fold-0 "
+          f"checkpoint subsample. Selected: lr {sw['best']['lr']}, rank {sw['best']['rank']}.")
+        a(_table(["Configuration", "Budget (epochs)", "Checkpoint BA", "img/s"],
+                 [[k.rsplit(",budget=", 1)[0], k.rsplit("=", 1)[1], f"{v['ckpt_ba']:.4f}", f"{v['img_per_s']:.1f}"] for k, v in sw["runs"].items()]))
+        a("")
+    a("== All arms")
+    rows = []
+    for p in sorted((PATHS.results / "arms").glob("*.json")):
+        r = json.loads(p.read_text())
+        rows.append([r["name"], ", ".join(r["backbones"]) or "—",
+                     f"{_ba(r['oof']['seed_avg'])} ({r.get('oof_subset', 'all train')})" if "oof" in r else "—",
+                     _ba(r["valid"]["seed_avg"]), f"{r['valid']['seed_avg']['auroc']:.4f}"])
+    a(_table(["Arm", "Backbone", "OOF BA [95% CI] (patches)", "Valid BA [95% CI]", "Valid AUROC"], rows))
+    a("")
     a("= AI statement")
     a("This codebase and paper were written by Claude Code (Anthropic), executing a specification provided by a human author, Libor Burian. Human cleanup and rewriting are in progress.")
     return "\n".join(t)

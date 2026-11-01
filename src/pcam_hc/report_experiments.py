@@ -176,6 +176,28 @@ GLOSSARY = [
 ]
 
 
+# Classifiers trained here: (arm, plain-language description, trainable part, algorithm/objective, data/curriculum).
+TRAINED = [
+    ("S0_hibou_l_cls_linear", "The original: Hibou-L's summary vector of a patch fed to one weighted sum",
+     "linear head (1,025 weights); Hibou-L frozen", "AdamW, binary cross-entropy, 12,500 steps", "all 216 train slides; no curriculum"),
+    ("S3b_oof_label_cleaning", "The original, retrained after removing patches whose label looked wrong",
+     "linear head; Hibou-L frozen", "as above", "train minus patches whose out-of-fold prediction is more than 0.9 away from the label"),
+    ("S5_lora", "Best model: Hibou-L itself slightly adjusted for this task",
+     "LoRA adapters (rank 16) in all 24 attention blocks + head", "AdamW with warm-up + cosine schedule, BCE, EMA of weights",
+     "folds 1–4, cleaned; two stages: linear probe first, then fine-tuning (LP-FT); rotations/flips + stain jitter"),
+    ("H4_aug_control", "Control: the original, trained on the same recoloured/rotated images LoRA saw",
+     "linear head; Hibou-L frozen", "AdamW, BCE", "folds 1–4, cleaned, one augmented view per patch"),
+    ("S0_scan_dinov2_reg_l", "Control: same architecture trained on everyday photos instead of pathology",
+     "linear head; DINOv2-L frozen", "AdamW, BCE", "all train slides"),
+    ("S0_scan_random_vitl_reg4", "Control: same architecture with random, untrained weights",
+     "linear head; random ViT-L frozen", "AdamW, BCE", "all train slides"),
+    ("control_color_histogram", "Control: uses only the colour distribution of the patch",
+     "logistic regression on 96 colour bins", "L-BFGS, logistic loss", "all train slides"),
+    ("control_shuffled_labels", "Control: trained on shuffled labels, so it can only guess",
+     "linear head; Hibou-L frozen", "AdamW, BCE", "train with permuted labels"),
+]
+
+
 def render_summary() -> str:
     arms = {p.stem: json.loads(p.read_text()) for p in sorted((PATHS.results / "arms").glob("*.json"))}
     lad = _j("ladder.json") or {}
@@ -203,6 +225,14 @@ def render_summary() -> str:
         arm = arms.get("S0_hibou_l_cls_linear" if key == "hibou_l" else f"S0_scan_{key}")
         ba = _ba(arm["oof"]["seed_avg"]) if arm and "oof" in arm else "pending"
         lines.append(f"| {name} | {arch} | {obj} | {data} | {ba} | {src} |")
+    lines += ["", "## Classifiers trained in this study", "",
+              "All are evaluated on H&E-stained lymph-node patches (PCam, 96×96 px); \"valid BA\" is balanced accuracy on the 54 validation slides.", "",
+              "| Classifier | In plain words | What is trained | Algorithm and objective | Data and curriculum | Valid BA [95% CI] |",
+              "|---|---|---|---|---|---|"]
+    for arm, plain, trained, algo, data in TRAINED:
+        r = arms.get(arm)
+        if r:
+            lines.append(f"| `{arm}` | {plain} | {trained} | {algo} | {data} | {_ba(r['valid']['seed_avg'])} |")
     lines += ["", "## Experiments", ""]
     for p in sorted(EXP_DIR.glob("[0-9]*.md")):
         lines.append(f"- [{p.stem}](experiments/{p.name})")

@@ -116,6 +116,79 @@ def render_stage_a() -> str | None:
     return "\n".join(lines)
 
 
+# Static facts about each network, with sources (model cards / papers); metrics are filled from results.
+NETWORKS = [
+    ("hibou_l", "Hibou-L", "ViT-L/14 + 4 registers, 304M", "DINOv2 self-supervised (student-teacher distillation, masked tokens)",
+     "1.2B tiles from 936k H&E + 202k non-H&E private slides", "https://arxiv.org/abs/2406.05074"),
+    ("hibou_b", "Hibou-B", "ViT-B/14 + 4 registers, 86M", "DINOv2", "512M tiles, same private data as Hibou-L", "https://arxiv.org/abs/2406.05074"),
+    ("prov_gigapath", "Prov-GigaPath (tile)", "ViT-g/14, ~1.1B", "DINOv2", "1.3B tiles, 171k Providence slides", "https://doi.org/10.1038/s41586-024-07441-w"),
+    ("h_optimus_0", "H-optimus-0", "ViT-g/14 + 4 registers, 1.1B", "DINOv2-style SSL", "proprietary, >500k slides", "https://huggingface.co/bioptimus/H-optimus-0"),
+    ("virchow2", "Virchow2", "ViT-H/14 + 4 registers, 632M", "DINOv2 with pathology-specific changes", "3.1M MSKCC slides, mixed magnification", "https://arxiv.org/abs/2408.00738"),
+    ("virchow", "Virchow", "ViT-H/14, 632M", "DINOv2", "1.5M MSKCC slides at 20x", "https://huggingface.co/paige-ai/Virchow"),
+    ("midnight", "Midnight-12k", "ViT-g/14, 1.1B", "DINOv2 + KDE regulariser", "12k TCGA slides", "https://arxiv.org/abs/2504.05186"),
+    ("openmidnight", "OpenMidnight-1.1", "ViT-g/14 + 4 registers", "DINOv2-style SSL", "not stated on card", "https://huggingface.co/medarc/OpenMidnight-1.1"),
+    ("phikon", "Phikon", "ViT-B/16, 86M", "iBOT", "TCGA tiles", "https://huggingface.co/owkin/phikon"),
+    ("phikon_v2", "Phikon-v2", "ViT-L/16, 303M", "DINOv2", "TCGA, CPTAC, GTEx, TCIA (public)", "https://huggingface.co/owkin/phikon-v2"),
+    ("dinov2_reg_l", "DINOv2-L (control)", "ViT-L/14 + 4 registers, 304M", "DINOv2", "LVD-142M natural images", "https://arxiv.org/abs/2309.16588"),
+    ("random_vitl_reg4", "Random ViT-L (control)", "ViT-L/14 + 4 registers, 304M", "none (random init)", "none", "—"),
+]
+
+GLOSSARY = [
+    ("PCam / PatchCamelyon", "327,680 small (96×96 px) image patches cut from lymph-node slides; label = tumour in the centre 32×32 px."),
+    ("Slide (WSI)", "One whole scanned glass slide. Many patches come from one slide and resemble each other, so statistics resample whole slides."),
+    ("Foundation model", "A large network pretrained without labels on millions of pathology images; reused as a feature extractor."),
+    ("Embedding / CLS token / patch tokens / registers", "The vector a ViT outputs for an image: a summary token (CLS), one token per 14×14 px piece (patch tokens), and extra 'register' tokens that are excluded from averages."),
+    ("Linear probe", "A single linear layer trained on frozen embeddings; the standard way to measure how good the features are (eva protocol)."),
+    ("Balanced accuracy (BA)", "Mean of sensitivity and specificity at a 0.5 probability threshold; the primary metric."),
+    ("AUROC", "Probability that a random tumour patch scores higher than a random normal patch; threshold-free."),
+    ("OOF (out-of-fold)", "Predictions for each training patch from a model that never saw that patch's slide (5 slide-grouped folds)."),
+    ("Slide-cluster bootstrap / BCa", "Resampling whole slides (tumour and normal slides separately) to get confidence intervals; BCa corrects bias and skew."),
+    ("Sign-flip test", "Paired test of whether one method beats another: randomly flips the sign of each slide's contribution to the BA difference."),
+    ("Holm correction", "Adjusts p-values when several candidates are tested at once, controlling the chance of any false positive."),
+    ("Sealed test", "The official test split is not touched until all choices are frozen and git-tagged; then every arm is scored once."),
+    ("TTA (D4)", "Test-time augmentation: average predictions over the 8 rotations/flips of a patch."),
+    ("LoRA", "Fine-tuning by adding small low-rank matrices to the attention layers instead of changing all weights."),
+    ("LP-FT", "Start fine-tuning from the linear-probe head, which protects pretrained features (Kumar et al. 2022)."),
+    ("HED jitter", "Stain augmentation: randomly perturbs the haematoxylin, eosin and DAB colour channels."),
+    ("WiSE-FT / soup", "Interpolating fine-tuned weights back toward the starting point / averaging several fine-tuned runs."),
+    ("Stacking / greedy ensemble", "Combining several models' predictions with a learned second-level model / by forward selection of members."),
+    ("Camelyon17-WILDS", "Patches from 5 Dutch hospitals with the same labelling rule; hospitals not used by PCam test out-of-distribution generalisation."),
+]
+
+
+def render_summary() -> str:
+    arms = {p.stem: json.loads(p.read_text()) for p in sorted((PATHS.results / "arms").glob("*.json"))}
+    lad = _j("ladder.json") or {}
+    steps = [json.loads(p.read_text()) for p in sorted((PATHS.results / "steps").glob("*.json"), key=lambda p: p.stat().st_mtime)]
+    lines = ["# Summary of all experiments", "",
+             "*Generated by `uv run python main.py report`; every number is read from `results/`.*", "",
+             "## In plain words",
+             "We take the best published AI model for spotting breast-cancer metastases in small lymph-node image patches "
+             "(Hibou-L) and test, one pre-announced idea at a time, whether it can be made more accurate. "
+             "Each idea is kept only if it clearly helps on training data split by slide *and* does not hurt on a separate "
+             "validation set. The official test set is locked until the end so that we cannot fool ourselves.", "",
+             "## Ladder so far", ""]
+    if steps:
+        lines += ["| Step | Incumbent | Best candidate | Adopted |", "|---|---|---|---|"]
+        for s in steps:
+            lines.append(f"| {s['step']} | `{s['incumbent']}` | `{s['winner']}` | {'yes' if s['adopted'] else 'no'} |")
+        lines.append(f"\nCurrent incumbent: `{lad.get('incumbent')}`.\n")
+    else:
+        lines.append("No ladder step decided yet.\n")
+    lines += ["## Networks", "",
+              "| Network | Architecture | Training objective | Pretraining data | PCam OOF BA (CLS probe, this study) | Source |",
+              "|---|---|---|---|---|---|"]
+    for key, name, arch, obj, data, src in NETWORKS:
+        arm = arms.get("S0_hibou_l_cls_linear" if key == "hibou_l" else f"S0_scan_{key}")
+        ba = _ba(arm["oof"]["seed_avg"]) if arm and "oof" in arm else "pending"
+        lines.append(f"| {name} | {arch} | {obj} | {data} | {ba} | {src} |")
+    lines += ["", "## Experiments", ""]
+    for p in sorted(EXP_DIR.glob("[0-9]*.md")):
+        lines.append(f"- [{p.stem}](experiments/{p.name})")
+    lines += ["", "## Glossary", ""] + [f"- **{t}**: {d}" for t, d in GLOSSARY]
+    return "\n".join(lines) + "\n"
+
+
 def build_experiment_reports() -> list:
     EXP_DIR.mkdir(parents=True, exist_ok=True)
     written = []
@@ -124,4 +197,5 @@ def build_experiment_reports() -> list:
         if text:
             (EXP_DIR / fname).write_text(text, encoding="utf-8")
             written.append(fname)
+    (PROJECT_ROOT / "reports" / "experiments_summary.md").write_text(render_summary(), encoding="utf-8")
     return written

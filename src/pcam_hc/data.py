@@ -100,6 +100,15 @@ class PCamImages:
         return np.asarray(self.array[np.asarray(idx)])
 
 
+def images_for(split: str):
+    """Image reader for a PCam split or the Camelyon17-WILDS subsample ('wilds')."""
+    if split == "wilds":
+        from pcam_hc.wilds import WildsImages
+
+        return WildsImages()
+    return PCamImages(split)
+
+
 def prefetch(read_fn, batches):
     """Yield (batch_indices, read_fn(batch_indices)); the next batch is read in a background
     thread while the caller processes the current one (overlaps disk I/O with GPU compute)."""
@@ -160,7 +169,7 @@ def make_subset(folds: np.ndarray, y: np.ndarray, size: int, seed: int = 0) -> n
 def color_histograms(split: str, bins: int = 32, batch: int = 8192) -> np.ndarray:
     """Per-image normalised RGB histograms (3 x `bins` features): the stain/colour-shortcut control.
     Vectorised with one bincount per batch: pixel value // (256/bins) + channel and image offsets."""
-    imgs = PCamImages(split)
+    imgs = images_for(split)
     out = np.empty((len(imgs), 3 * bins), dtype=np.float32)
     for start in range(0, len(imgs), batch):
         x = imgs.read(np.arange(start, min(len(imgs), start + batch)))  # (B, 96, 96, 3) uint8

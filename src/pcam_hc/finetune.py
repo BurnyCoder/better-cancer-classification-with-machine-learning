@@ -75,6 +75,18 @@ def pool_tokens(maps: dict, rep, n_prefix: int, last: int, center_tokens: int = 
     return torch.cat(feats, -1)
 
 
+def build_head(head_state: dict) -> nn.Module:
+    """Rebuild a probe head (linear / logreg = nn.Linear, mlp = the S2 MLP) from its saved state."""
+    sd = head_state["module"]
+    if head_state.get("kind") == "mlp":
+        d, h = sd["0.weight"].shape[1], sd["0.weight"].shape[0]
+        head = nn.Sequential(nn.Linear(d, h), nn.GELU(), nn.Dropout(0.1), nn.Linear(h, 1))
+    else:
+        head = nn.Linear(sd["weight"].shape[1], 1)
+    head.load_state_dict(sd)
+    return head
+
+
 class LoraClassifier(nn.Module):
     """Hibou-L + LoRA adapters + (z-scored) linear head on the ladder's representation.
 
@@ -103,11 +115,10 @@ class LoraClassifier(nn.Module):
         self.spec, self.rep, self.views = spec, rep, tuple(views)
         self.n_layers = backbone.config.num_hidden_layers
         self.rep_layers = tuple(sorted({self.n_layers if l == -1 else l for l, _ in rep.parts} | {self.n_layers}))
-        w = head_state["module"]["weight"]
-        self.head = nn.Linear(w.shape[1], 1)
-        self.head.load_state_dict(head_state["module"])
-        self.register_buffer("mu", head_state["mu"] if head_state.get("mu") is not None else torch.zeros(w.shape[1]))
-        self.register_buffer("sd", head_state["sd"] if head_state.get("sd") is not None else torch.ones(w.shape[1]))
+        self.head = build_head(head_state)
+        d = self.head[0].in_features if isinstance(self.head, nn.Sequential) else self.head.in_features
+        self.register_buffer("mu", head_state["mu"] if head_state.get("mu") is not None else torch.zeros(d))
+        self.register_buffer("sd", head_state["sd"] if head_state.get("sd") is not None else torch.ones(d))
         self.n_prefix = 1 + backbone.config.num_register_tokens
 
     def features(self, pixels: torch.Tensor) -> torch.Tensor:
@@ -237,4 +248,20 @@ def wise_state(ft_state: dict, lp_head: dict, alpha: float) -> dict:
             out[k] = (1 - alpha) * lp_head[k.split(".", 1)[1]].to(v) + alpha * v
         else:
             out[k] = v.clone()
+    return out
+
+
+def soup_state(states: list[dict]) -> dict:
+    """Uniform soup of LoRA runs (Wortsman et al. 2022, https://arxiv.org/abs/2203.05482) without
+    approximation: the mean update (1/n) sum_i B_i A_i equals [B_1 ... B_n]/n @ [A_1; ...; A_n], i.e. one
+    LoRA of rank n*r (build the model with rank n*r and lora_alpha n*r so the scaling stays 1). Heads
+    are averaged."""
+    n, out = len(states), {}
+    for k in states[0]:
+        if "lora_A" in k:
+            out[k] = torch.cat([s[k] for s in states], 0)
+        elif "lora_B" in k:
+            out[k] = torch.cat([s[k] for s in states], 1) / n
+        else:
+            out[k] = sum(s[k] for s in states) / n
     return out

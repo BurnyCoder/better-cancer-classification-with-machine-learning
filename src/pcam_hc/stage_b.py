@@ -11,6 +11,7 @@ import json
 import logging
 
 import numpy as np
+import torch
 from scipy.special import expit
 
 from pcam_hc import experiments as ex
@@ -172,26 +173,39 @@ def step_s3(ctx) -> dict:
     inc, rep, views, cfg = incumbent()
     sub = subset_indices(ctx)
     Xtr = features("train", rep, views)
-    sub_views = [features("train", rep, views, subset="train64k", d4=k) if k else Xtr[sub] for k in range(8)]
-    va_views = [features("valid", rep, views, d4=k) for k in range(8)]
-    seeds = _seeds_for(cfg)
-    no_tta = np.zeros((len(seeds), len(sub)), np.float32)
-    tta = np.zeros_like(no_tta)
+    seeds, n_folds = _seeds_for(cfg), ctx.folds.max() + 1
+    # Fit every head once (fold heads for OOF, full-train heads for valid), then stream the views one
+    # at a time so at most one rotated copy of the features is in memory.
+    fold_heads = {(si, f): _fit_cfg(cfg, Xtr[ctx.folds != f], ctx.y_train[ctx.folds != f], seed)
+                  for si, seed in enumerate(seeds) for f in range(n_folds)}
+    full_heads = [_fit_cfg(cfg, Xtr, ctx.y_train, seed) for seed in seeds]
+    for seed, h in zip(seeds, full_heads):  # kept for scoring the TTA arm on test after unsealing
+        (ex.HEAD_DIR / "S3_d4_tta").mkdir(parents=True, exist_ok=True)
+        torch.save({"module": h.module.state_dict(), "mu": h.mu, "sd": h.sd, "kind": cfg["head"]},
+                   ex.HEAD_DIR / "S3_d4_tta" / f"seed{seed}.pt")
     sub_folds = ctx.folds[sub]
-    for si, seed in enumerate(seeds):
-        for f in range(ctx.folds.max() + 1):
-            head = _fit_cfg(cfg, Xtr[ctx.folds != f], ctx.y_train[ctx.folds != f], seed)
-            m = sub_folds == f
-            logits = np.stack([head.logits(v[m]) for v in sub_views])
-            no_tta[si, m], tta[si, m] = logits[0], logits.mean(0)
-    heads = [_fit_cfg(cfg, Xtr, ctx.y_train, seed) for seed in seeds]
-    val_no = np.stack([h.logits(va_views[0]) for h in heads])
-    val_tta = np.stack([np.mean([h.logits(v) for v in va_views], 0) for h in heads])
+    logit_sum = np.zeros((len(seeds), len(sub)))
+    val_sum = np.zeros((len(seeds), len(ctx.y_valid)))
+    for k in range(8):
+        Xs = Xtr[sub] if k == 0 else features("train", rep, views, subset="train64k", d4=k)
+        Xv = features("valid", rep, views, d4=k)
+        for si in range(len(seeds)):
+            for f in range(n_folds):
+                m = sub_folds == f
+                logit_sum[si, m] += fold_heads[(si, f)].logits(Xs[m])
+        val_k = np.stack([h.logits(Xv) for h in full_heads])
+        val_sum += val_k
+        if k == 0:  # identity view = the no-TTA arm, scored by the very same heads
+            no_tta, val_no = logit_sum.astype(np.float32).copy(), val_k.astype(np.float32)
+        del Xs, Xv
+    tta = (logit_sum / 8).astype(np.float32)
+    val_tta = (val_sum / 8).astype(np.float32)
     y_sub, s_sub = ctx.y_train[sub], ctx.slides_train[sub]
     records = {}
     for name, oof, val in [("S3_no_tta_train64k", no_tta, val_no), ("S3_d4_tta", tta, val_tta)]:
         rec = {"name": name, "description": "incumbent head; " + ("8-view D4 TTA" if "d4" in name else "identity view"),
                "head": cfg["head"], "backbones": ["hibou_l"], "publishable": True, "dim": int(Xtr.shape[1]),
+               "recipe": {**recipe(rep, views), "tta": "d4" in name, "heads_from": "S3_d4_tta"},
                "oof_subset": "train64k", "oof": ex.summarise(y_sub, oof, s_sub),
                "valid": ex.summarise(ctx.y_valid, val, ctx.slides_valid)}
         ex.save_arm(name, rec, {"oof": oof, "valid": val})

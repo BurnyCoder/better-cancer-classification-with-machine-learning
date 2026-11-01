@@ -54,6 +54,18 @@ def test_lora_classifier_starts_at_the_probe_solution():
     assert trainable and all("lora_" in n or n.startswith("head.") for n in trainable)
 
 
+def test_soup_of_lora_runs_is_the_exact_mean_update():
+    from pcam_hc.finetune import soup_state
+
+    g = torch.Generator().manual_seed(0)
+    runs = [{"x.lora_A.w": torch.randn(4, 8, generator=g), "x.lora_B.w": torch.randn(6, 4, generator=g),
+             "head.weight": torch.randn(1, 3, generator=g)} for _ in range(3)]
+    soup = soup_state(runs)
+    mean_delta = sum(r["x.lora_B.w"] @ r["x.lora_A.w"] for r in runs) / 3
+    assert torch.allclose(soup["x.lora_B.w"] @ soup["x.lora_A.w"], mean_delta, atol=1e-5)
+    assert torch.allclose(soup["head.weight"], sum(r["head.weight"] for r in runs) / 3)
+
+
 def test_wise_alpha_endpoints():
     ft = {"lora_B.w": torch.ones(2, 2), "lora_A.w": torch.ones(2, 2), "head.weight": torch.ones(1, 2)}
     lp = {"weight": torch.zeros(1, 2)}

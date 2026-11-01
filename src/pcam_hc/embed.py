@@ -75,17 +75,17 @@ def embed_backbone(name: str, split: str, view: str = "full", indices=None, subs
     import json
 
     from pcam_hc.backbones import REGISTRY, Encoder, load_model
-    from pcam_hc.data import PCamImages
+    from pcam_hc.data import images_for
     from pcam_hc.features import CACHE_LAYOUT, cache_dir
 
-    if split == "test":
+    if split in ("test", "wilds"):  # sealed evaluation sets
         from pcam_hc.seal import assert_test_unsealed, frozen_arms
 
         assert_test_unsealed(frozen_arms())
     spec = REGISTRY[name]
     lay = CACHE_LAYOUT.get(name, {})
     encoder = Encoder(load_model(spec), spec, layers=lay.get("layers"), center=lay.get("center", False))
-    images = PCamImages(split)
+    images = images_for(split)
     idx = np.arange(len(images)) if indices is None else np.asarray(indices)
     out_dir = cache_dir(name, split, subset)
     out_dir.mkdir(parents=True, exist_ok=True)

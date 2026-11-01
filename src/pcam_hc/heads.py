@@ -19,6 +19,16 @@ from pcam_hc.config import EVA
 from pcam_hc.metrics import balanced_accuracy
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+GPU_BUDGET = 2.5e9  # bytes of float16 features kept on the GPU; larger inputs stream from pinned CPU memory
+
+
+def _resident(X) -> torch.Tensor:
+    """Float16 features on the GPU if they fit the budget, else in pinned CPU memory (batches are then
+    moved to the GPU on demand, so 16k-dimensional representations still train on an 8 GB card)."""
+    Xt = torch.as_tensor(np.asarray(X), dtype=torch.float16)
+    if DEVICE == "cuda" and Xt.numel() * 2 <= GPU_BUDGET:
+        return Xt.to(DEVICE)
+    return Xt.pin_memory() if DEVICE == "cuda" else Xt
 
 
 @dataclass
@@ -61,18 +71,19 @@ def _train_sgd(module, X, y, seed, max_steps, lr, wd, batch, X_val=None, y_val=N
     """Minibatch AdamW training with per-epoch shuffling; with validation data, eva-style early
     stopping on validation BA (checked every epoch, best checkpoint kept)."""
     g = torch.Generator().manual_seed(seed)
-    Xt = torch.as_tensor(np.asarray(X), device=DEVICE, dtype=torch.float16)  # fits in 8 GB for <=~2k dims x 262k
+    Xt = _resident(X)
     yt = torch.as_tensor(np.asarray(y), device=DEVICE, dtype=torch.float32)
     opt = torch.optim.AdamW(module.parameters(), lr=lr, weight_decay=wd)
     loss_fn = nn.BCEWithLogitsLoss()
     steps_per_epoch = math.ceil(len(yt) / batch)
     best, best_state, bad, step = -1.0, None, 0, 0
     while step < max_steps:
-        perm = torch.randperm(len(yt), generator=g).to(DEVICE)
+        perm = torch.randperm(len(yt), generator=g).to(Xt.device)
         module.train()
         for i in range(steps_per_epoch):
             idx = perm[i * batch : (i + 1) * batch]
-            loss = loss_fn(module(_standardise(Xt[idx].float(), mu, sd)).squeeze(-1), yt[idx])
+            xb = Xt[idx].to(DEVICE, non_blocking=True).float()
+            loss = loss_fn(module(_standardise(xb, mu, sd)).squeeze(-1), yt[idx.to(DEVICE)])
             opt.zero_grad(set_to_none=True)
             loss.backward()
             opt.step()
@@ -97,10 +108,10 @@ def _fit_logreg(X, y, C: float, max_iter: int = 500, chunk: int = 32768, init: H
     unpenalised; https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression) on
     z-scored features, solved by full-batch L-BFGS with strong-Wolfe line search.
 
-    Features stay float16 on the GPU and are standardised chunk by chunk inside the closure, so
-    262k x 8k-dimensional problems fit in 8 GB. `init` warm-starts from another head (C path)."""
+    Features stay float16 (on the GPU when they fit, else pinned CPU memory) and are standardised chunk
+    by chunk inside the closure. `init` warm-starts from another head (regularisation path)."""
     mu, sd = (init.mu, init.sd) if init is not None else _zscore_stats(X)
-    Xt = torch.as_tensor(np.asarray(X), device=DEVICE, dtype=torch.float16)
+    Xt = _resident(X)
     yt = torch.as_tensor(np.asarray(y), device=DEVICE, dtype=torch.float32)
     lin = nn.Linear(Xt.shape[1], 1).to(DEVICE)
     if init is not None:
@@ -116,7 +127,7 @@ def _fit_logreg(X, y, C: float, max_iter: int = 500, chunk: int = 32768, init: H
         # Objective divided by C * n for conditioning; the minimiser is unchanged.
         total = 0.0
         for s in range(0, len(yt), chunk):
-            z = lin(_standardise(Xt[s : s + chunk].float(), mu, sd)).squeeze(-1)
+            z = lin(_standardise(Xt[s : s + chunk].to(DEVICE, non_blocking=True).float(), mu, sd)).squeeze(-1)
             part = nn.functional.binary_cross_entropy_with_logits(z, yt[s : s + chunk], reduction="sum") / len(yt)
             part.backward()
             total += part.item()

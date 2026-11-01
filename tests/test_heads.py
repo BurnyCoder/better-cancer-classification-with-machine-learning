@@ -39,3 +39,15 @@ def test_mlp_head_solves_xor():
     y = ((X[:, 0] > 0) ^ (X[:, 1] > 0)).astype(int)
     head = fit_head("mlp", X[:3000], y[:3000], seed=0, max_steps=3000)
     assert ((head.logits(X[3000:]) > 0) == y[3000:]).mean() > 0.9
+
+
+def test_heads_train_when_features_stay_in_cpu_memory(monkeypatch):
+    """Wide representations exceed the GPU budget and stream from pinned CPU memory; same results."""
+    import pcam_hc.heads as heads
+
+    monkeypatch.setattr(heads, "GPU_BUDGET", 0)
+    X, y = _blobs(sep=4.0)
+    head = fit_head("linear", X[:3000], y[:3000], seed=0, max_steps=600)
+    assert ((head.logits(X[3000:]) > 0) == y[3000:]).mean() > 0.97
+    lr = fit_head("logreg", X, y, C=0.1)
+    assert ((lr.logits(X) > 0) == y).mean() > 0.97

@@ -49,6 +49,22 @@ def cmd_embed(args):
                                subset=args.subset if split == "train" else None)
 
 
+def cmd_embed_tta(args):
+    """D4 views needed by S3: every base view of the current incumbent, rotated/flipped (k = 1..7),
+    for train-64k and valid (k = 0 is the already-cached identity view)."""
+    from pcam_hc.data import load_labels, load_meta, make_folds, make_subset
+    from pcam_hc.embed import embed_backbone
+    from pcam_hc.stage_b import incumbent, view_name
+
+    _, _, views, _ = incumbent()
+    sub = make_subset(make_folds(load_meta("train"), config.N_FOLDS), load_labels("train"), config.SUBSET_SIZE)
+    for k in range(1, 8):
+        for base in views:
+            view = view_name(base, k)
+            embed_backbone("hibou_l", "train", view=view, indices=sub, subset="train64k", batch_size=args.batch_size)
+            embed_backbone("hibou_l", "valid", view=view, batch_size=args.batch_size)
+
+
 def cmd_parity(args):
     """H2 parity: our native-transformers Hibou-L CLS vs kaiko-eva's remote-code embeddings
     (tools/eva_parity/eva_embed.py) on the first 256 validation patches."""
@@ -155,6 +171,7 @@ def cmd_report(args):
 
 
 PHASES = {"download": cmd_download, "verify": cmd_verify, "access": cmd_access, "embed": cmd_embed,
+          "embed-tta": cmd_embed_tta,
           "parity": cmd_parity, "stage-a": cmd_stage_a, "stage-b": cmd_stage_b, "report": cmd_report}
 
 

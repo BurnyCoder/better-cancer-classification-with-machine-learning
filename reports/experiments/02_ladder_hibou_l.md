@@ -23,12 +23,14 @@
 | S3 D4 TTA | `S3_d4_tta` | 0.9522 [0.9396, 0.9617] | +0.04 pt [-0.02, +0.13] | 0.247 | 0.9343 | -0.24 pt |
 | S3 D4 TTA | `S3_no_tta_train64k` | 0.9517 [0.9391, 0.9615] | +0.01 pt [-0.03, +0.10] | 0.779 | 0.9352 | -0.15 pt |
 | S3b label cleaning | `S3b_oof_label_cleaning` | 0.9525 [0.9394, 0.9624] | +0.27 pt [+0.10, +0.50] | 0.0032 | 0.9368 | +0.01 pt |
+| S5 LoRA | `S5_lora` | 0.9798 [0.9654, 0.9883] | +0.87 pt [+0.50, +1.56] | 0.0001 | 0.9444 | +0.77 pt |
 
 ## Step decisions (pre-registered rule)
 - **S1_representation**: best candidate `S1_f_best_plus_centre_view`. OOF test passed: False; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.
 - **S2_head**: best candidate `S2_logreg`. OOF test passed: True; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.
 - **S3_d4_tta**: best candidate `S3_d4_tta`. OOF test passed: False; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.
 - **S3b_label_cleaning**: best candidate `S3b_oof_label_cleaning`. OOF test passed: True; valid gate passed: True → **adopted**. Incumbent after: `S3b_oof_label_cleaning`.
+- **S5_lora**: best candidate `S5_lora`. OOF test passed: True; valid gate passed: True → **adopted**. Incumbent after: `S5_lora`.
 
 ## Notes
 - **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.

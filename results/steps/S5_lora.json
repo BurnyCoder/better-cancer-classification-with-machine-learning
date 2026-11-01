@@ -1,0 +1,44 @@
+{
+  "step": "S5_lora",
+  "incumbent": "S3b_oof_label_cleaning",
+  "candidates": [
+    "S5_lora"
+  ],
+  "winner": "S5_lora",
+  "comparisons": {
+    "S5_lora": {
+      "oof": {
+        "delta_ba": 0.0076622923625625505,
+        "ci_ba": [
+          0.0026728751491562324,
+          0.02071122309952106
+        ],
+        "delta_auroc": 0.0027095840120824333,
+        "ci_auroc": [
+          0.0005658214385299413,
+          0.007064094997129193
+        ],
+        "p_signflip": 0.015798420157984203,
+        "n_slides": 44
+      },
+      "valid": {
+        "delta_ba": 0.007515544783314954,
+        "ci_ba": [
+          0.003487992927135839,
+          0.012226497489621381
+        ],
+        "delta_auroc": 0.0015289740414141662,
+        "ci_auroc": [
+          -0.000997308463028401,
+          0.004232956190892274
+        ],
+        "p_signflip": 0.0053994600539946005,
+        "n_slides": 54
+      }
+    }
+  },
+  "oof_test_passed": true,
+  "valid_gate_passed": true,
+  "adopted": true,
+  "new_incumbent": "S5_lora"
+}

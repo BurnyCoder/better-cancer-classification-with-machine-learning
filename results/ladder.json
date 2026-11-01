@@ -24,6 +24,12 @@
       "winner": "S3b_oof_label_cleaning",
       "adopted": true,
       "incumbent_after": "S3b_oof_label_cleaning"
+    },
+    {
+      "step": "S5_lora",
+      "winner": "S5_lora",
+      "adopted": true,
+      "incumbent_after": "S5_lora"
     }
   ],
   "configs": {
@@ -212,6 +218,28 @@
       },
       "head": "linear",
       "clean_threshold": 0.9
+    },
+    "S5_lora": {
+      "representation": {
+        "parts": [
+          [
+            -1,
+            "cls"
+          ]
+        ],
+        "center": false,
+        "views": [
+          "full"
+        ]
+      },
+      "head": "linear",
+      "clean_threshold": 0.9,
+      "lora": {
+        "lr": 0.0001,
+        "rank": 16
+      },
+      "base_arm": "S5_lora"
     }
-  }
+  },
+  "hibou_incumbent": "S5_lora"
 }

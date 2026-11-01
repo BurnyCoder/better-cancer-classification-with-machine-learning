@@ -200,6 +200,20 @@ def cmd_published(args):
     print(json.dumps(fetch()["eva_leaderboard"]["rows"][:8], indent=1))
 
 
+def cmd_release(args):
+    """One push of everything (comparisons, report, paper, git PR+merge, Hugging Face)."""
+    from pcam_hc.release import release
+
+    release(args.title or "Release")
+
+
+def cmd_release_watch(args):
+    """Release every newly trained classifier / step decision automatically."""
+    from pcam_hc.release import watch
+
+    watch()
+
+
 def cmd_report(args):
     from pcam_hc.report import build
 
@@ -208,6 +222,7 @@ def cmd_report(args):
 
 PHASES = {"download": cmd_download, "verify": cmd_verify, "access": cmd_access, "embed": cmd_embed,
           "embed-tta": cmd_embed_tta, "wilds-prepare": cmd_wilds_prepare, "publish": cmd_publish, "published": cmd_published,
+          "release": cmd_release, "release-watch": cmd_release_watch,
           "parity": cmd_parity, "stage-a": cmd_stage_a, "stage-b": cmd_stage_b, "stage-c": cmd_stage_c, "report": cmd_report}
 
 
@@ -221,6 +236,7 @@ def main():
     parser.add_argument("--subset", default=None, help="embed: 'train64k' restricts the train split to the subset")
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--arms", nargs="+", default=None, help="publish: arm names (default: all publishable)")
+    parser.add_argument("--title", default=None, help="release: commit / PR title")
     parser.add_argument("--parts", nargs="+", default=["h2", "s0", "controls", "scan"],
                         help="stage-a: h2 s0 controls scan; stage-b: s1 s2 s3 s3b s4; stage-c: s5 s5b h4 convnext")
     args = parser.parse_args()

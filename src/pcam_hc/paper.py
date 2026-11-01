@@ -77,6 +77,11 @@ def build_paper() -> str | None:
     ctrl = {k: _j(f"arms/{k}.json") for k in ("control_shuffled_labels", "control_color_histogram", "control_majority")}
     pub, wilds, pool = _j("published_baselines.json"), _j("wilds_data.json"), _j("model_pool.json")
     steps = sorted((PATHS.results / "steps").glob("*.json")) if (PATHS.results / "steps").exists() else []
+    from pcam_hc.report_experiments import ladder_rows
+
+    lrows = ladder_rows()
+    decided = [json.loads(p.read_text()) for p in sorted(steps, key=lambda p: p.stat().st_mtime)]
+    release = "Release 2 (in progress): Hibou-L improvement ladder" if lrows else "Release 1: exact reproduction, controls and a data audit"
     hib = next(r for r in pub["eva_leaderboard"]["rows"] if r["model"] == "Hibou-L") if pub else None
     w_val = s0["valid"]["seed_avg"]["ci_ba"][1] - s0["valid"]["seed_avg"]["ci_ba"][0]
     w_oof = s0["oof"]["seed_avg"]["ci_ba"][1] - s0["oof"]["seed_avg"]["ci_ba"][0]
@@ -90,7 +95,7 @@ def build_paper() -> str | None:
     a('#set heading(numbering: "1.1")')
     a('#show link: set text(fill: rgb("#2a78d6"))')
     a('#align(center)[#text(16pt)[*Hill-climbing Hibou-L on PatchCamelyon:*] \\ '
-      '#text(13pt)[a pre-registered, slide-clustered study. Release 1: exact reproduction, controls and a data audit]]')
+      f'#text(13pt)[a pre-registered, slide-clustered study. {release}]]')
     a('#align(center)[Libor "Burny" Burian \\ #link("https://github.com/BurnyCoder/better-cancer-classification-with-machine-learning")[github.com/BurnyCoder/better-cancer-classification-with-machine-learning]]')
     a("")
     a("*Abstract.* "
@@ -105,7 +110,10 @@ def build_paper() -> str | None:
       f"Controls behave as expected: shuffled labels give {ctrl['control_shuffled_labels']['oof']['seed_avg']['ba']:.3f} and a colour-histogram classifier gives {ctrl['control_color_histogram']['oof']['seed_avg']['ba']:.3f}. "
       f"A pixel-hash audit found {dv['cross_duplicates_train_test']} test images identical to train images, all from PCam test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036` at identical coordinates, which indicates a duplicate scan. "
       "We also find that the official Camelyon17-WILDS test hospital matches the colour signature of one of PCam's own source hospitals. "
-      "Both findings changed the pre-registered evaluation before any test data was touched.")
+      "Both findings changed the pre-registered evaluation before any test data was touched."
+      + (f" Improvement ladder so far: {len(lrows)} classifiers trained on frozen Hibou-L features; the best paired out-of-fold difference "
+         f"from the original probe is {100 * max(r['cmp']['oof']['delta_ba'] for r in lrows):+.2f} pt BA; "
+         f"steps decided: {len(decided)}, adopted: {sum(d['adopted'] for d in decided)}." if lrows else ""))
     a("")
     a("= Introduction")
     a(f"Sentinel lymph-node metastasis detection is a labour-intensive step in breast-cancer staging {c('camelyon16')}. "
@@ -185,6 +193,21 @@ def build_paper() -> str | None:
           f"It is therefore a Camelyon16 source hospital and not out-of-distribution for PCam-trained models. "
           f"Our primary OOD pool is centres 0, 1 and 4 (CWZ, RST, LPON {c('seg2404', 'camelyon')}).")
     a("")
+    if lrows:
+        a("== Improvement ladder (release 2, in progress)")
+        a("Hibou-L stays frozen in S1–S3b; each candidate trains a new classifier on features read from it (5 slide-grouped folds × 5 seeds). "
+          "Each classifier is compared with the original probe, paired on the same patches. Per-candidate p-values are descriptive; "
+          "the pre-registered adoption rule applies Holm within a step and the validation no-harm gate.")
+        a(_table(["Step", "Classifier", "OOF BA [95% CI]", "Δ OOF vs original [95% CI] (pt)", "p", "Δ valid (pt)"],
+                 [[r["step"], r["arm"], _ba(r["oof"]),
+                   f"{100 * r['cmp']['oof']['delta_ba']:+.2f} [{100 * r['cmp']['oof']['ci_ba'][0]:+.2f}, {100 * r['cmp']['oof']['ci_ba'][1]:+.2f}]",
+                   f"{r['cmp']['oof']['p_signflip']:.3g}", f"{100 * r['cmp']['valid']['delta_ba']:+.2f}"] for r in lrows]))
+        a("")
+        a('#figure(image("../figures/ladder_deltas.png", width: 92%), caption: [Every trained ladder classifier vs. the original Hibou-L probe: paired Δ BA with 95% slide-bootstrap CIs (train OOF and validation).])')
+        for d in decided:
+            a(f"- *{d['step']}*: best candidate `{d['winner']}`; OOF test passed {d.get('oof_test_passed')}, valid gate passed "
+              f"{d.get('valid_gate_passed')} → *{'adopted' if d['adopted'] else 'rejected'}*.")
+        a("")
     a("= Planned and postponed analyses")
     a(f"The pre-registered ladder follows. Steps decided so far: {len(steps)}.")
     a(f"- S1 representation: last-layer CLS, CLS+mean, DINOv2 last-4-layer {c('dinov2')}, spread layers {c('multilayer')}, centre tokens and a centre-crop view.")

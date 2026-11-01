@@ -176,6 +176,34 @@ def pipeline_figure() -> None:
     plt.close(fig)
 
 
+def ladder_figure() -> None:
+    """Paired difference from the original Hibou-L probe for every trained ladder classifier."""
+    from pcam_hc.report_experiments import ladder_rows
+
+    rows = ladder_rows()
+    if not rows:
+        return
+    fig, ax = plt.subplots(figsize=(7.5, 0.5 * len(rows) + 1.4), facecolor=SURFACE)
+    ax.axvline(0, color=INK2, linewidth=1)
+    labelled = set()
+    for i, r in enumerate(rows):
+        for key, dy, color, label in (("oof", 0.12, GROUP_COLOR["Hibou-L"], "train OOF (paired, same patches)"),
+                                      ("valid", -0.12, GROUP_COLOR["other foundation model"], "PCam valid (paired)")):
+            d = r["cmp"][key]
+            ax.plot([100 * d["ci_ba"][0], 100 * d["ci_ba"][1]], [i + dy] * 2, color=color, linewidth=2)
+            ax.plot(100 * d["delta_ba"], i + dy, "o", color=color, ms=7, mec=SURFACE, mew=1.5,
+                    label=None if key in labelled else label)
+            labelled.add(key)
+    ax.set_yticks(range(len(rows)), [f"{r['step']}: {r['arm']}" for r in rows], color=INK, fontsize=8)
+    ax.set_xlabel("Δ balanced accuracy vs. original Hibou-L probe (percentage points, 95% slide-bootstrap CI)", color=INK2)
+    _style(ax)
+    ax.legend(frameon=False, fontsize=8.5, loc="best")
+    ax.set_title("Improvement ladder: each trained classifier vs. the original", color=INK, fontsize=11, loc="left")
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "ladder_deltas.png", dpi=180)
+    plt.close(fig)
+
+
 def site_data(records: dict) -> None:
     """Aggregate-only JSON for the GitHub Pages explorer (licence-clean for every backbone)."""
 
@@ -198,7 +226,15 @@ def site_data(records: dict) -> None:
     load = lambda f: json.loads((PATHS.results / f).read_text()) if (PATHS.results / f).exists() else None  # noqa: E731
     final = load("final/summary.json")
     pub = load("published_baselines.json")
+    from pcam_hc.report_experiments import ladder_rows
+
+    ladder_out = [{"arm": r["arm"], "step": r["step"], "description": r["description"],
+                   "oof_ba": r["oof"]["ba"], "delta": r["cmp"]["oof"]["delta_ba"], "lo": r["cmp"]["oof"]["ci_ba"][0],
+                   "hi": r["cmp"]["oof"]["ci_ba"][1], "p": r["cmp"]["oof"]["p_signflip"],
+                   "valid_ba": r["valid"]["ba"], "valid_delta": r["cmp"]["valid"]["delta_ba"],
+                   "valid_lo": r["cmp"]["valid"]["ci_ba"][0], "valid_hi": r["cmp"]["valid"]["ci_ba"][1]} for r in ladder_rows()]
     out = {"arms": arms_out, "steps": steps, "gate": load("h2_gate.json"), "ladder": load("ladder.json"),
+           "ladder_rows": ladder_out,
            "final": final, "published": pub["eva_leaderboard"]["rows"] if pub else [],
            "literature": pub["literature"] if pub else []}
     site = PROJECT_ROOT / "site" / "data"
@@ -227,6 +263,17 @@ def highlights() -> str | None:
         f"{(s0['valid']['seed_avg']['ci_ba'][1] - s0['valid']['seed_avg']['ci_ba'][0]) / (s0['oof']['seed_avg']['ci_ba'][1] - s0['oof']['seed_avg']['ci_ba'][0]):.1f}× wider than the train CV ones. "
         "Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.",
     ]
+    from pcam_hc.report_experiments import ladder_rows
+
+    lrows = ladder_rows()
+    if lrows:
+        best = max(lrows, key=lambda r: r["cmp"]["oof"]["delta_ba"])
+        d = best["cmp"]["oof"]
+        steps = [json.loads(p.read_text()) for p in (PATHS.results / "steps").glob("*.json")] if (PATHS.results / "steps").exists() else []
+        out.insert(3, f"- ⏳ **Improvement ladder (release 2, in progress).** {len(lrows)} classifier(s) trained on frozen Hibou-L features so far. "
+                      f"The best paired out-of-fold difference from the original is {100 * d['delta_ba']:+.2f} pt BA "
+                      f"(95% CI {100 * d['ci_ba'][0]:+.2f} to {100 * d['ci_ba'][1]:+.2f}; `{best['arm']}`). "
+                      f"Steps decided: {len(steps)}; adopted: {sum(s['adopted'] for s in steps)}.")
     if wl:
         d = wl["hospital_check"]["l1_distance_to_pcam_hospital"]["2"]
         out.append(f"- ⚠️ **The official Camelyon17-WILDS test hospital is not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 {d['UMCU']:.2f} vs. {d['RUMC']:.2f} to RUMC). "
@@ -254,6 +301,7 @@ def build() -> None:
     published_context_figure()
     stage_a_figure(records)
     pipeline_figure()
+    ladder_figure()
     site_data(records)
     gate_path = PATHS.results / "h2_gate.json"
     if gate_path.exists():
@@ -261,7 +309,13 @@ def build() -> None:
         gate = (f"H2 reproduction gate: valid BA {g['valid_ba_seed_mean']:.4f} ± {g['valid_ba_seed_sd']:.4f} "
                 f"(5 seeds) vs. eva's published 0.939 ± 0.010 → **{'pass' if g['pass'] else 'FAIL'}**.")
         (TAB_DIR / "h2_gate.md").write_text(gate + "\n", encoding="utf-8")
-        inject_readme(gate + "\n\n" + table, "RESULTS")
+        from pcam_hc.report_experiments import ladder_rows, ladder_table_md
+
+        rows = ladder_rows()
+        ladder_md = ("\n\n**Improvement ladder: every trained classifier vs. the original Hibou-L probe** (paired on the same "
+                     "patches; per-candidate p-values are descriptive, and adoption uses the pre-registered Holm + valid-gate rule):\n\n"
+                     + ladder_table_md(rows) + "\n\n![Ladder](reports/figures/ladder_deltas.png)") if rows else ""
+        inject_readme(gate + "\n\n" + table + ladder_md, "RESULTS")
     hl = highlights()
     if hl:
         inject_readme(hl, "HIGHLIGHTS")

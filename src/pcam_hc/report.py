@@ -218,7 +218,7 @@ def site_data(records: dict) -> None:
         arms_out[name] = {"label": PRETTY.get(b, b) if name.startswith("S0_scan_") or name == "S0_hibou_l_cls_linear" else name,
                           "group": group, "backbones": [PRETTY.get(x, x) for x in r["backbones"]],
                           "publishable": r.get("publishable", True), "valid": block(r["valid"]["seed_avg"]),
-                          **({"oof": block(r["oof"]["seed_avg"])} if "oof" in r else {})}
+                          **({"oof": block(r["oof"]["seed_avg"]), "subset": r.get("oof_subset", "all train")} if "oof" in r else {})}
     steps = []
     for p in sorted((PATHS.results / "steps").glob("*.json"), key=lambda p: p.stat().st_mtime):
         s = json.loads(p.read_text())
@@ -240,6 +240,9 @@ def site_data(records: dict) -> None:
     site = PROJECT_ROOT / "site" / "data"
     site.mkdir(parents=True, exist_ok=True)
     (site / "results.json").write_text(json.dumps(out, indent=1, default=float))
+    for fig in ("examples.png", "lora_training.png"):  # Pages serves only site/, so the figures are copied there
+        if (FIG_DIR / fig).exists():
+            (site / fig).write_bytes((FIG_DIR / fig).read_bytes())
 
 
 def highlights() -> str | None:
@@ -295,6 +298,10 @@ def build() -> None:
     stage_a_figure(records)
     pipeline_figure()
     ladder_figure()
+    from pcam_hc.report_examples import examples_figure, lora_curve_figure
+
+    examples_figure()
+    lora_curve_figure()
     site_data(records)
     gate_path = PATHS.results / "h2_gate.json"
     if gate_path.exists():

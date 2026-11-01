@@ -30,6 +30,7 @@
   h1 { font-size: 26px; margin: 0 0 6px; } h2 { font-size: 19px; margin: 36px 0 8px; }
   p, li { color: var(--ink-2); } a { color: var(--s1); }
   .links { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0 18px; }
+  .fig { width: 100%; max-width: 900px; height: auto; display: block; border-radius: 8px; background: #fcfcfb; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .tile { background: var(--surface-2); border-radius: 10px; padding: 14px 16px; }
   .tile .v { font-size: 26px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -73,6 +74,14 @@
   <h2>Backbones in this study: frozen CLS + eva linear probe (train OOF)</h2>
   <div id="scan" class="chart"></div>
 
+  <h2>Example outputs</h2>
+  <p class="note">Validation patches drawn at random (seed 0) from four groups defined by whether the original probe and the
+    LoRA model are right, with each model's predicted tumour probability. The dashed box is the labelled centre.</p>
+  <img class="fig" src="data/examples.png" alt="Grid of validation patches with tumour probabilities from the original probe, LoRA, DINOv2-L and the colour histogram">
+
+  <h2>LoRA training</h2>
+  <img class="fig" src="data/lora_training.png" alt="LoRA training loss and checkpoint-selection balanced accuracy over training steps">
+
   <h2 id="test-h">Sealed test and out-of-distribution hospitals</h2>
   <div id="test"></div>
 
@@ -107,8 +116,9 @@ fetch("data/results.json").then(r => r.json()).then(d => {
   if (d.gate) tile(fmt(d.gate.valid_ba_seed_mean), `Reproduced eva Hibou-L valid BA (published 0.939): ${d.gate.pass ? "pass" : "fail"}`);
   const s0 = d.arms["S0_hibou_l_cls_linear"];
   if (s0) tile(fmt(s0.oof.ba), "S0 incumbent, train OOF BA");
-  if (d.ladder && d.ladder.incumbent && d.arms[d.ladder.incumbent] && d.arms[d.ladder.incumbent].oof)
-    tile(fmt(d.arms[d.ladder.incumbent].oof.ba), `Current incumbent (${d.ladder.incumbent}), OOF BA`);
+  const best = d.ladder && (d.ladder.hibou_incumbent || d.ladder.incumbent);
+  if (s0 && best && best !== "S0_hibou_l_cls_linear" && d.arms[best])
+    tile(fmt(d.arms[best].valid.ba), `Best pipeline so far (${best}), valid BA; original ${fmt(s0.valid.ba)}`);
   if (d.final && d.final.confirmatory && d.final.confirmatory.H1) tile(
     (d.final.confirmatory.H1.delta_ba >= 0 ? "+" : "") + (100 * d.final.confirmatory.H1.delta_ba).toFixed(2) + " pt",
     "H1: final vs. baseline on sealed test (BA)");
@@ -172,11 +182,11 @@ fetch("data/results.json").then(r => r.json()).then(d => {
 
   // All-arms table
   const t = document.getElementById("arms"); const h = el("tr");
-  ["Arm", "Backbones", "OOF BA", "OOF 95% CI", "Valid BA", "Valid 95% CI", "Publishable"].forEach(x => h.append(el("th", x)));
+  ["Arm", "Backbones", "OOF BA", "OOF 95% CI", "OOF patches", "Valid BA", "Valid 95% CI", "Publishable"].forEach(x => h.append(el("th", x)));
   t.append(h);
   for (const [n, a] of Object.entries(d.arms)) {
     const tr = el("tr");
-    [n, a.backbones.join(", ") || "—", fmt(a.oof && a.oof.ba), a.oof ? `[${fmt(a.oof.lo)}, ${fmt(a.oof.hi)}]` : "—",
+    [n, a.backbones.join(", ") || "—", fmt(a.oof && a.oof.ba), a.oof ? `[${fmt(a.oof.lo)}, ${fmt(a.oof.hi)}]` : "—", a.subset || "—",
      fmt(a.valid.ba), `[${fmt(a.valid.lo)}, ${fmt(a.valid.hi)}]`, a.publishable ? "yes" : "aggregates only"]
       .forEach(x => tr.append(el("td", x)));
     t.append(tr);

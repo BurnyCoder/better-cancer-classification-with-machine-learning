@@ -1,5 +1,5 @@
 {
-  "incumbent": "S0_hibou_l_cls_linear",
+  "incumbent": "S3b_oof_label_cleaning",
   "history": [
     {
       "step": "S1_representation",
@@ -18,6 +18,12 @@
       "winner": "S3_d4_tta",
       "adopted": false,
       "incumbent_after": "S0_hibou_l_cls_linear"
+    },
+    {
+      "step": "S3b_label_cleaning",
+      "winner": "S3b_oof_label_cleaning",
+      "adopted": true,
+      "incumbent_after": "S3b_oof_label_cleaning"
     }
   ],
   "configs": {
@@ -190,6 +196,22 @@
         ]
       },
       "head": "mlp"
+    },
+    "S3b_oof_label_cleaning": {
+      "representation": {
+        "parts": [
+          [
+            -1,
+            "cls"
+          ]
+        ],
+        "center": false,
+        "views": [
+          "full"
+        ]
+      },
+      "head": "linear",
+      "clean_threshold": 0.9
     }
   }
 }

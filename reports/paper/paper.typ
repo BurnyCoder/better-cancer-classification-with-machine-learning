@@ -155,5 +155,46 @@ The published Hibou-L PCam probe is reproducible to within 0.001 BA with an inde
 [28] M. Elphick, S. Turajlic, G. Yang. Are the latent representations of foundation models for pathology invariant to rotation? 2024. #link("https://arxiv.org/abs/2412.11938")[https://arxiv.org/abs/2412.11938] \
 [29] J. Wang et al. BAHOP: Similarity-based basin hopping for a fast hyper-parameter search in WSI classification. 2024 (v1 lists CAMELYON17 centre names). #link("https://arxiv.org/abs/2404.11161")[https://arxiv.org/abs/2404.11161] \
 
+= Appendix
+== LoRA hyperparameter sweep
+Successive halving over learning rate × rank on the train-64k patches of folds 1–4; each rung scores the EMA weights on the 10k fold-0 checkpoint subsample. Selected: lr 0.0001, rank 16.
+#table(columns: 4, stroke: 0.4pt + luma(200), inset: 4pt, align: left,
+  table.header([*Configuration*], [*Budget (epochs)*], [*Checkpoint BA*], [*img/s*]),
+  [lr=5e-05,r=8], [0.25], [0.9783], [28.8],
+  [lr=5e-05,r=16], [0.25], [0.9786], [28.8],
+  [lr=0.0001,r=8], [0.25], [0.9783], [28.8],
+  [lr=0.0001,r=16], [0.25], [0.9783], [28.8],
+  [lr=0.0003,r=8], [0.25], [0.9783], [28.8],
+  [lr=0.0003,r=16], [0.25], [0.9784], [28.8],
+  [lr=5e-05,r=16], [0.5], [0.9785], [31.7],
+  [lr=0.0003,r=16], [0.5], [0.9787], [31.7],
+  [lr=0.0001,r=16], [0.5], [0.9788], [31.7])
+
+== All arms
+#table(columns: 5, stroke: 0.4pt + luma(200), inset: 4pt, align: left,
+  table.header([*Arm*], [*Backbone*], [*OOF BA [95% CI] (patches)*], [*Valid BA [95% CI]*], [*Valid AUROC*]),
+  [control\_color\_histogram], [—], [0.7870 \[0.7580, 0.8106\] (all train)], [0.8098 \[0.7530, 0.8472\]], [0.8923],
+  [control\_majority], [—], [—], [0.5000 \[0.5000, 0.5000\]], [0.5000],
+  [control\_shuffled\_labels], [hibou\_l], [0.5204 \[0.4935, 0.5457\] (all train)], [0.4731 \[0.4280, 0.5212\]], [0.4637],
+  [H4\_aug\_control], [hibou\_l], [0.9731 \[0.9568, 0.9823\] (fold0)], [0.9344 \[0.8853, 0.9627\]], [0.9780],
+  [S0\_eva\_exact\_hibou\_l], [hibou\_l], [—], [0.9396 \[0.8936, 0.9638\]], [0.9833],
+  [S0\_hibou\_l\_cls\_linear], [hibou\_l], [0.9498 \[0.9366, 0.9600\] (all train)], [0.9367 \[0.8888, 0.9617\]], [0.9823],
+  [S0\_scan\_dinov2\_reg\_l], [dinov2\_reg\_l], [0.8797 \[0.8622, 0.8940\] (all train)], [0.8682 \[0.8103, 0.9023\]], [0.9448],
+  [S0\_scan\_random\_vitl\_reg4], [random\_vitl\_reg4], [0.7973 \[0.7692, 0.8201\] (all train)], [0.7902 \[0.7232, 0.8334\]], [0.8721],
+  [S1\_b\_cls24\_mean24], [hibou\_l], [0.9491 \[0.9353, 0.9598\] (all train)], [0.9353 \[0.8830, 0.9607\]], [0.9816],
+  [S1\_c\_dinov2\_last4], [hibou\_l], [0.9457 \[0.9303, 0.9573\] (all train)], [0.9316 \[0.8712, 0.9593\]], [0.9796],
+  [S1\_d\_spread\_6\_12\_18\_24], [hibou\_l], [0.9469 \[0.9318, 0.9585\] (all train)], [0.9326 \[0.8786, 0.9594\]], [0.9787],
+  [S1\_e\_best\_plus\_centre\_tokens], [hibou\_l], [0.9496 \[0.9361, 0.9599\] (all train)], [0.9352 \[0.8839, 0.9608\]], [0.9817],
+  [S1\_f\_best\_plus\_centre\_view], [hibou\_l], [0.9497 \[0.9362, 0.9599\] (all train)], [0.9354 \[0.8889, 0.9609\]], [0.9818],
+  [S2\_logreg], [hibou\_l], [0.9510 \[0.9378, 0.9610\] (all train)], [0.9365 \[0.8886, 0.9618\]], [0.9827],
+  [S2\_mlp], [hibou\_l], [0.9312 \[0.9112, 0.9462\] (all train)], [0.9054 \[0.8227, 0.9423\]], [0.9741],
+  [S3\_d4\_tta], [hibou\_l], [0.9522 \[0.9396, 0.9617\] (train64k)], [0.9343 \[0.8836, 0.9604\]], [0.9823],
+  [S3\_no\_tta\_train64k], [hibou\_l], [0.9517 \[0.9391, 0.9615\] (train64k)], [0.9352 \[0.8854, 0.9612\]], [0.9822],
+  [S3b\_oof\_label\_cleaning], [hibou\_l], [0.9525 \[0.9394, 0.9624\] (all train)], [0.9368 \[0.8908, 0.9636\]], [0.9833],
+  [S5\_lora], [hibou\_l], [0.9798 \[0.9654, 0.9883\] (fold0)], [0.9444 \[0.8962, 0.9695\]], [0.9848],
+  [S5b\_wise\_0.25], [hibou\_l], [0.9782 \[0.9638, 0.9872\] (fold0\_minus\_ckpt)], [0.9388 \[0.8914, 0.9663\]], [0.9827],
+  [S5b\_wise\_0.5], [hibou\_l], [0.9789 \[0.9644, 0.9879\] (fold0\_minus\_ckpt)], [0.9416 \[0.8935, 0.9681\]], [0.9837],
+  [S5b\_wise\_0.75], [hibou\_l], [0.9798 \[0.9655, 0.9885\] (fold0\_minus\_ckpt)], [0.9427 \[0.8945, 0.9686\]], [0.9843])
+
 = AI statement
 This codebase and paper were written by Claude Code (Anthropic), executing a specification provided by a human author, Libor Burian. Human cleanup and rewriting are in progress.

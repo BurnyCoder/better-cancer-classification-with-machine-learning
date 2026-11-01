@@ -16,6 +16,7 @@ from pcam_hc.config import PATHS, PROJECT_ROOT
 log = logging.getLogger(__name__)
 REPO_ID = "BurnyCoder/pcam-hibou-hillclimb"
 COLLECTION_TITLE = "PCam hill-climbing of Hibou-L"
+LORA_ARM = "S5_lora"  # the fine-tuned model; its weights live in the LoRA checkpoint folder, not in heads/
 
 
 class LicenceError(RuntimeError):
@@ -33,9 +34,18 @@ def model_card(records: list[dict]) -> str:
     notices = sorted({REGISTRY[b].notice for r in records for b in r["backbones"]})
     rows = "\n".join(
         f"| `{r['name']}` | {', '.join(r['backbones'])} | {r['valid']['seed_avg']['ba']:.4f} | "
-        f"{r['oof']['seed_avg']['ba']:.4f} |" if "oof" in r else
-        f"| `{r['name']}` | {', '.join(r['backbones'])} | {r['valid']['seed_avg']['ba']:.4f} | — |"
+        + (f"{r['oof']['seed_avg']['ba']:.4f} ({r.get('oof_subset', 'all train')}) |" if "oof" in r else "— |")
         for r in records)
+    lora = next((r for r in records if r["name"] == LORA_ARM), None)
+    lora_md = (f"""
+## Fine-tuned model (`lora/{LORA_ARM}/`)
+
+The adopted LoRA model ({lora['description']}). Files: `seed*.safetensors` hold the trainable weights (LoRA A/B
+matrices of the attention projections in all 24 blocks plus the linear head; best EMA checkpoint), `lp_head.safetensors`
+holds the LP-FT start head, and `config.json` holds the pinned Hibou-L revision, PEFT settings and preprocessing. Rebuild it
+with the repository's `pcam_hc.stage_c.new_model` and `load_state_dict(..., strict=False)`. Hibou-L itself is not
+redistributed: accept its licence on Hugging Face first.
+""" if lora else "")
     return f"""---
 license: apache-2.0
 tags: [pathology, histopathology, patchcamelyon, hibou, linear-probe, lora]
@@ -62,7 +72,8 @@ The current paper release is included as `paper.pdf`.
 
 Each `heads/<arm>/seed<k>.pt` holds a `torch` state dict (`module`), the z-scoring `mu`/`sd` (or None), and
 the head `kind`. The input is the representation documented in the arm's JSON record (`arms/<arm>.json`).
-
+Train OOF BA is out-of-fold over all training slides, or over train fold 0 for the fine-tuned model and its H4 control.
+{lora_md}
 ## Licences and attribution
 - The base model weights are **not** included. Accept the Hibou-L licence on its Hugging Face page and
   download it yourself.
@@ -84,6 +95,8 @@ def upload(arm_names: list[str], token=None) -> str:
     api.create_repo(REPO_ID, repo_type="model", exist_ok=True)
     staging = PATHS.data / "publish"
     (staging / "arms").mkdir(parents=True, exist_ok=True)
+    if LORA_ARM in arm_names:
+        stage_lora(staging / "lora" / LORA_ARM)
     for rec in records:
         (staging / "arms" / f"{rec['name']}.json").write_text(json.dumps(rec, indent=2))
     (staging / "README.md").write_text(model_card(records), encoding="utf-8")
@@ -95,8 +108,9 @@ def upload(arm_names: list[str], token=None) -> str:
     from pcam_hc.experiments import HEAD_DIR
 
     for rec in records:
-        api.upload_folder(folder_path=str(HEAD_DIR / rec["name"]), path_in_repo=f"heads/{rec['name']}",
-                          repo_id=REPO_ID, commit_message=f"Upload heads of {rec['name']}")
+        if (HEAD_DIR / rec["name"]).exists():  # frozen-probe heads; the LoRA model was staged above
+            api.upload_folder(folder_path=str(HEAD_DIR / rec["name"]), path_in_repo=f"heads/{rec['name']}",
+                              repo_id=REPO_ID, commit_message=f"Upload heads of {rec['name']}")
     collection = next((c for c in api.list_collections(owner=REPO_ID.split("/")[0], limit=100)
                        if c.title == COLLECTION_TITLE), None)
     if collection is None:
@@ -109,7 +123,39 @@ def upload(arm_names: list[str], token=None) -> str:
     return f"https://huggingface.co/{REPO_ID}"
 
 
+def stage_lora(out: Path) -> None:
+    """Stage the S5 LoRA model: per run, the best EMA trainable weights (LoRA A/B of the attention
+    projections in all 24 Hibou-L blocks plus the linear head) as safetensors; the LP-FT start head;
+    and the configuration that rebuilds it on the pinned Hibou-L revision."""
+    import torch
+    from safetensors.torch import save_file
+
+    from pcam_hc.finetune import LORA_TARGETS
+    from pcam_hc.stage_c import LORA_DIR
+
+    rec = json.loads((PATHS.results / "arms" / f"{LORA_ARM}.json").read_text())
+    assert_publishable(rec)
+    out.mkdir(parents=True, exist_ok=True)
+    for p in sorted(LORA_DIR.glob("seed*.pt")):
+        save_file({k: v.contiguous().cpu() for k, v in torch.load(p, weights_only=False)["state"].items()},
+                  str(out / f"{p.stem}.safetensors"))
+    head = torch.load(LORA_DIR / "lp_head.pt", weights_only=False)
+    save_file({k: v.contiguous().cpu() for k, v in head["module"].items()}, str(out / "lp_head.safetensors"))
+    spec = REGISTRY["hibou_l"]
+    cfg = {"base_model": spec.repo, "revision": spec.revision, "base_licence": spec.licence,
+           "peft": {"r": rec["lora"]["rank"], "lora_alpha": rec["lora"]["rank"], "lora_dropout": 0.0, "bias": "none",
+                    "target_modules": LORA_TARGETS},
+           "preprocess": {"input": "96x96 uint8 RGB", "resize": "bilinear to 224x224", "mean": spec.mean, "std": spec.std},
+           "head": {"kind": head["kind"], "features": rec["recipe"] if "recipe" in rec else "block-24 CLS"},
+           "training": {"lr": rec["lora"]["lr"], "runs": rec["lora"]["runs"], "description": rec["description"]},
+           "rebuild": "pcam_hc.stage_c.new_model(lp_head_state, rank), then load_state_dict(seed*.safetensors, strict=False)"}
+    (out / "config.json").write_text(json.dumps(cfg, indent=2, default=list))
+
+
 def publishable_arms() -> list[str]:
+    """Arms whose whole lineage is redistributable and that have weights to upload (heads or the LoRA model)."""
+    from pcam_hc.stage_c import LORA_DIR
+
     return [p.stem for p in sorted((PATHS.results / "arms").glob("*.json"))
             if all(REGISTRY[b].publishable for b in json.loads(p.read_text()).get("backbones", []))
-            and (Path(PATHS.data) / "heads" / p.stem).exists()]
+            and ((Path(PATHS.data) / "heads" / p.stem).exists() or (p.stem == LORA_ARM and any(LORA_DIR.glob("seed*.pt"))))]

@@ -82,7 +82,7 @@ def cmd_parity(args):
         a, b = a / np.linalg.norm(a, axis=1, keepdims=True), b / np.linalg.norm(b, axis=1, keepdims=True)
         return (a * b).sum(1)
 
-    report = {}
+    report = {"n": len(ref)}  # the first n valid patches that eva embedded with Hibou's remote code
     for label, device, dtype in [("fp32_cpu", "cpu", torch.float32), ("bf16_gpu", "cuda", torch.bfloat16)]:
         enc = Encoder(load_model(spec), spec, device=device, dtype=dtype)
         ours = torch.cat([enc(x[i : i + 32]) for i in range(0, len(x), 32)])[:, : spec.dim].cpu().numpy()
@@ -112,19 +112,20 @@ def cmd_stage_a(args):
     ctx = ex.Context()
     out = config.PATHS.results
     if "h2" in args.parts:  # eva-exact reproduction on valid (test stays sealed)
-        rec = ex.eva_exact(ctx, "S0_eva_exact_hibou_l", load("hibou_l", "train", CLS), load("hibou_l", "valid", CLS))
+        rec = ex.eva_exact(ctx, "S0_eva_exact_hibou_l", load("hibou_l", "train", CLS), load("hibou_l", "valid", CLS),
+                           seeds=config.STAGE_A_SEEDS)
         ba = rec["valid"]["seed_mean"]["ba"]
-        gate = {"valid_ba_seed_mean": ba, "valid_ba_seed_sd": rec["valid"]["seed_sd"]["ba"], "target": 0.939,
-                "tolerance": 0.010, "pass": abs(ba - 0.939) <= 0.010}
+        gate = {"valid_ba_seed_mean": ba, "valid_ba_seed_sd": rec["valid"]["seed_sd"]["ba"], "n_seeds": rec["valid"]["n_seeds"],
+                "target": 0.939, "tolerance": 0.010, "pass": abs(ba - 0.939) <= 0.010}
         (out / "h2_gate.json").write_text(json.dumps(gate, indent=2))
         print(json.dumps(gate, indent=2))
     if "s0" in args.parts:  # incumbent of the ladder, CV protocol (fixed steps, no valid early stopping)
         ex.run_arm(ctx, "S0_hibou_l_cls_linear", load("hibou_l", "train", CLS), load("hibou_l", "valid", CLS),
-                   description="Hibou-L CLS (block 24), eva linear head, CV protocol")
+                   seeds=config.STAGE_A_SEEDS, description="Hibou-L CLS (block 24), eva linear head, CV protocol")
     if "controls" in args.parts:
         Xtr, Xva = load("hibou_l", "train", CLS), load("hibou_l", "valid", CLS)
         perm = np.random.default_rng(0).permutation(len(ctx.y_train))
-        ex.run_arm(ctx, "control_shuffled_labels", Xtr, Xva, y_train=ctx.y_train[perm],
+        ex.run_arm(ctx, "control_shuffled_labels", Xtr, Xva, y_train=ctx.y_train[perm], seeds=config.STAGE_A_SEEDS,
                    description="Hibou-L CLS, linear head trained on permuted train labels")
         ex.run_arm(ctx, "control_color_histogram", color_histograms("train"), color_histograms("valid"),
                    kind="logreg", backbones=(), C=1.0, seeds=(0,),
@@ -168,7 +169,7 @@ def cmd_stage_b(args):
 
 
 def cmd_stage_c(args):
-    """Stage C: S5 LoRA (sweep + 3 final seeds), S5b weight space, H4 augmented-feature control,
+    """Stage C: S5 LoRA (lr x rank sweep + one final run), S5b weight space, H4 augmented-feature control,
     ConvNeXt-T end-to-end baseline."""
     from pcam_hc import stage_c
     from pcam_hc.experiments import Context

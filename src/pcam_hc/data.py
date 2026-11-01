@@ -211,21 +211,39 @@ def verify_splits(check_duplicates: bool = True, batch: int = 8192) -> dict:
         report[f"{s}_positive_rate"] = float(y.mean())
         report[f"{s}_label_matches_meta"] = bool((meta["center_tumor_patch"].to_numpy() == y.astype(bool)).all())
     if check_duplicates:
-        hashes, metas = {}, {s: load_meta(s, audit=True) for s in SPLITS}
+        hashes = {}
         for s in SPLITS:
             imgs, hs = PCamImages(s, audit=True), []
             for start in range(0, len(imgs), batch):
                 block = imgs.read(np.arange(start, min(len(imgs), start + batch)))
                 hs += [hashlib.blake2b(im.tobytes(), digest_size=16).digest() for im in block]
             hashes[s] = hs
-            report[f"{s}_within_split_duplicates"] = len(hs) - len(set(hs))
-        for i, a in enumerate(SPLITS):
-            for b in SPLITS[i + 1 :]:
-                shared = set(hashes[a]) & set(hashes[b])
-                report[f"cross_duplicates_{a}_{b}"] = len(shared)
-                # Which slide pairs the shared images come from (e.g. a re-scanned slide).
-                ia = [k for k, h in enumerate(hashes[a]) if h in shared]
-                ib = [k for k, h in enumerate(hashes[b]) if h in shared]
-                report[f"cross_duplicate_slides_{a}_{b}"] = sorted(
-                    {*metas[a]["wsi"].iloc[ia].unique().tolist(), *metas[b]["wsi"].iloc[ib].unique().tolist()})
+        report |= duplicate_audit(hashes, {s: load_meta(s, audit=True) for s in SPLITS})
+    return report
+
+
+def duplicate_audit(hashes: dict, metas: dict) -> dict:
+    """Exact-duplicate statistics from per-image hashes aligned with each split's meta rows.
+    Within a split: extra copies, duplicate groups, groups with conflicting labels or spanning slides.
+    Across splits (in `hashes` order): shared images, their slides, how many share slide coordinates,
+    and patch/positive counts of the second split's slides that contain shared images."""
+    report, names = {}, list(hashes)
+    df = {s: metas[s].reset_index(drop=True).assign(h=hashes[s]) for s in names}
+    for s in names:
+        dup = df[s][df[s].duplicated("h", keep=False)].groupby("h")
+        report[f"{s}_within_split_duplicates"] = int(len(df[s]) - df[s]["h"].nunique())
+        report[f"{s}_duplicate_groups"] = int(dup.ngroups)
+        report[f"{s}_duplicate_groups_label_conflict"] = int((dup["center_tumor_patch"].nunique() > 1).sum())
+        report[f"{s}_duplicate_groups_multi_slide"] = int((dup["wsi"].nunique() > 1).sum())
+    for i, a in enumerate(names):
+        for b in names[i + 1 :]:
+            pairs = df[a].merge(df[b], on="h", suffixes=("_a", "_b"))  # every (a-copy, b-copy) of a shared image
+            same = (pairs["coord_x_a"] == pairs["coord_x_b"]) & (pairs["coord_y_a"] == pairs["coord_y_b"])
+            report[f"cross_duplicates_{a}_{b}"] = int(pairs["h"].nunique())
+            report[f"cross_duplicate_slides_{a}_{b}"] = sorted({*pairs["wsi_a"], *pairs["wsi_b"]})
+            report[f"cross_duplicates_same_coords_{a}_{b}"] = int(pairs.loc[same, "h"].nunique())
+            if len(pairs):
+                rows = df[b][df[b]["wsi"].isin(set(pairs["wsi_b"]))].groupby("wsi")["center_tumor_patch"]
+                report[f"cross_duplicate_slide_counts_{a}_{b}"] = {w: {"n": int(n), "positive": int(p)}
+                                                                  for w, n, p in zip(rows.size().index, rows.size(), rows.sum())}
     return report

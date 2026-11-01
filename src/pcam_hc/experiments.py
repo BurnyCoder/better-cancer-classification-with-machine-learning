@@ -74,12 +74,13 @@ def refit(kind: str, X, y, X_eval, seeds=SEEDS, X_val=None, y_val=None, save_as:
 
 # ----------------------------------------------------------------------------- records
 def summarise(y, logits_by_seed, slides, n_boot: int = 10_000) -> dict:
-    """Per-seed metric spread plus metrics and slide-bootstrap CIs of the seed-averaged prediction."""
+    """Per-seed metric spread plus metrics and slide-bootstrap CIs of the seed-averaged prediction.
+    The seed count is recorded; with one seed the SD is undefined and stored as None, not 0."""
     per_seed = [binary_metrics(y, l) for l in logits_by_seed]
     avg = seed_average(logits_by_seed)
-    rec = {"seed_mean": {k: float(np.mean([m[k] for m in per_seed])) for k in per_seed[0]},
-           "seed_sd": {k: float(np.std([m[k] for m in per_seed], ddof=1)) if len(per_seed) > 1 else 0.0
-                       for k in per_seed[0]},
+    rec = {"n_seeds": len(per_seed),
+           "seed_mean": {k: float(np.mean([m[k] for m in per_seed])) for k in per_seed[0]},
+           "seed_sd": {k: float(np.std([m[k] for m in per_seed], ddof=1)) for k in per_seed[0]} if len(per_seed) > 1 else None,
            "seed_avg": binary_metrics(y, avg)}
     rec["seed_avg"].update(slide_bootstrap_ci(y, avg, slides, n_boot=n_boot))
     return rec
@@ -130,9 +131,9 @@ def compare_arms(ctx: Context, incumbent: str, challenger: str, n_boot: int = 10
     }
 
 
-def eva_exact(ctx: Context, name: str, X_train, X_valid, backbones=("hibou_l",)) -> dict:
-    """S0 / H2: eva protocol (linear head, early stopping on valid BA, 5 runs)."""
-    val = refit("linear", X_train, ctx.y_train, X_valid, X_val=X_valid, y_val=ctx.y_valid, save_as=name)
+def eva_exact(ctx: Context, name: str, X_train, X_valid, backbones=("hibou_l",), seeds=SEEDS) -> dict:
+    """S0 / H2: eva protocol (linear head, early stopping on valid BA; Stage A passes EVA.n_runs = 5 seeds)."""
+    val = refit("linear", X_train, ctx.y_train, X_valid, seeds=seeds, X_val=X_valid, y_val=ctx.y_valid, save_as=name)
     record = {"name": name, "description": "eva-exact linear probe, early stopping on valid", "head": "linear",
               "backbones": list(backbones), "publishable": lineage_publishable(backbones),
               "dim": int(X_train.shape[1]), "valid": summarise(ctx.y_valid, val, ctx.slides_valid),

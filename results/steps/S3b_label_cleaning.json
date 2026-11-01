@@ -1,0 +1,53 @@
+{
+  "step": "S3b_label_cleaning",
+  "incumbent": "S0_hibou_l_cls_linear",
+  "candidates": [
+    "S3b_oof_label_cleaning"
+  ],
+  "winner": "S3b_oof_label_cleaning",
+  "oof_ba": {
+    "S3b_oof_label_cleaning": 0.9524612426757812
+  },
+  "incumbent_oof_ba": 0.9497642517089844,
+  "holm_p": {
+    "S3b_oof_label_cleaning": 0.0031996800319968005
+  },
+  "comparisons": {
+    "S3b_oof_label_cleaning": {
+      "incumbent": "S0_hibou_l_cls_linear",
+      "challenger": "S3b_oof_label_cleaning",
+      "oof": {
+        "delta_ba": 0.002696990966796875,
+        "ci_ba": [
+          0.0010287018142663513,
+          0.004963463162922531
+        ],
+        "delta_auroc": 0.0012650051212403923,
+        "ci_auroc": [
+          0.0002991416611277764,
+          0.002512802974897311
+        ],
+        "p_signflip": 0.0031996800319968005,
+        "n_slides": 216
+      },
+      "valid": {
+        "delta_ba": 0.00014764269150646658,
+        "ci_ba": [
+          -0.007593964164612639,
+          0.003978098134916481
+        ],
+        "delta_auroc": 0.000966549729830346,
+        "ci_auroc": [
+          -2.277620727504592e-05,
+          0.0026915180095505266
+        ],
+        "p_signflip": 0.9826017398260174,
+        "n_slides": 54
+      }
+    }
+  },
+  "oof_test_passed": true,
+  "valid_gate_passed": true,
+  "adopted": true,
+  "new_incumbent": "S3b_oof_label_cleaning"
+}

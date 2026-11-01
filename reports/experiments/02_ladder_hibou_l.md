@@ -25,6 +25,8 @@
 | S3b label cleaning | `S3b_oof_label_cleaning` | 0.9525 [0.9394, 0.9624] | +0.27 pt [+0.10, +0.50] | 0.0032 | 0.9368 | +0.01 pt |
 | S5 LoRA | `S5_lora` | 0.9798 [0.9654, 0.9883] | +0.87 pt [+0.50, +1.56] | 0.0001 | 0.9444 | +0.77 pt |
 | S5b weight space | `S5b_wise_0.25` | 0.9782 [0.9638, 0.9872] | +0.72 pt [+0.45, +1.22] | 0.0001 | 0.9388 | +0.21 pt |
+| S5b weight space | `S5b_wise_0.5` | 0.9789 [0.9644, 0.9879] | +0.80 pt [+0.48, +1.33] | 0.0001 | 0.9416 | +0.49 pt |
+| S5b weight space | `S5b_wise_0.75` | 0.9798 [0.9655, 0.9885] | +0.88 pt [+0.52, +1.49] | 0.0001 | 0.9427 | +0.60 pt |
 
 ## Step decisions (pre-registered rule)
 - **S1_representation**: best candidate `S1_f_best_plus_centre_view`. OOF test passed: False; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.
@@ -32,6 +34,7 @@
 - **S3_d4_tta**: best candidate `S3_d4_tta`. OOF test passed: False; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.
 - **S3b_label_cleaning**: best candidate `S3b_oof_label_cleaning`. OOF test passed: True; valid gate passed: True → **adopted**. Incumbent after: `S3b_oof_label_cleaning`.
 - **S5_lora**: best candidate `S5_lora`. OOF test passed: True; valid gate passed: True → **adopted**. Incumbent after: `S5_lora`.
+- **S5b_weight_space**: best candidate `S5b_wise_0.75`. OOF test passed: False; valid gate passed: False → **rejected**. Incumbent after: `S5_lora`.
 
 ## Notes
 - **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.

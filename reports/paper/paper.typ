@@ -57,12 +57,10 @@ The pre-registered ladder follows. Steps decided so far: 0.
 Then the confirmatory tests on the sealed test split (H1, H1b, H4) and on WILDS (H6). By the author's decision, ablations that require training new models and the separate seed/hyperparameter sensitivity analysis are postponed to a later release.
 
 *Release order* (author's instruction; the adoption rules are unchanged):
-+ Reproduced Hibou-L with cheap controls and no-training baselines (this release).
-+ The Hibou-L-only improvement ladder: S1, S2, S3, S3b, S5, S5b.
-+ Control models: DINOv2-L with natural-image weights, random-init ViT-L, and the H4 augmentation-matched control.
-+ Baseline models: the B\* scan of the other foundation models and ConvNeXt-T.
-+ Ablations that need no training.
-+ More models (S4 fusion, S6), then the one-shot sealed test and WILDS.
++ Reproduced Hibou-L with cheap controls and no-training baselines (release 1).
++ The Hibou-L-only improvement ladder: S1, S2, S3, S3b, S5, S5b (release 2).
++ Control models: DINOv2-L with natural-image weights, random-init ViT-L, and the H4 augmentation-matched control (release 3).
+Postponed to a later study day: the baseline models (the B\* scan of 9 other foundation models; ConvNeXt-T), the ablations, S4 fusion and S6, and the sensitivity study. H1b depends on B\* and is deferred with them.
 
 = Limitations
 - Hibou-L and most candidates were pretrained on private data; their exclusion of Camelyon cannot be verified.

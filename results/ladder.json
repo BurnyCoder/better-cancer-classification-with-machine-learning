@@ -6,6 +6,12 @@
       "winner": "S1_f_best_plus_centre_view",
       "adopted": false,
       "incumbent_after": "S0_hibou_l_cls_linear"
+    },
+    {
+      "step": "S2_head",
+      "winner": "S2_logreg",
+      "adopted": false,
+      "incumbent_after": "S0_hibou_l_cls_linear"
     }
   ],
   "configs": {

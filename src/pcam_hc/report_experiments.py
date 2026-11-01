@@ -243,6 +243,41 @@ def _s2_learnings(steps: list[dict]) -> list[str]:
     return lines
 
 
+def _later_learnings() -> list[str]:
+    """S3, S3b and S5 learnings, every number read from the arm, comparison and sweep files."""
+    def cmp(arm):
+        p = PATHS.results / "comparisons" / f"{arm}_vs_baseline.json"
+        return json.loads(p.read_text()) if p.exists() else None
+
+    def d(c, part):  # "+0.27 pt [+0.10, +0.50]"
+        x = c[part]
+        return f"{100 * x['delta_ba']:+.2f} pt [{100 * x['ci_ba'][0]:+.2f}, {100 * x['ci_ba'][1]:+.2f}]"
+
+    lines = []
+    if c := cmp("S3_d4_tta"):
+        lines.append(f"- **S3 D4 TTA does not help.** Same heads with and without 8-view averaging: Δ OOF (train-64k) "
+                     f"{d(c, 'oof')}, p {c['oof']['p_signflip']:.2g}. Δ valid vs the original {d(c, 'valid')}. "
+                     "This matches the pre-registered prediction (≤ 0.3 pt) and Hibou-L's rotation/flip pretraining "
+                     "augmentation ([arXiv:2412.11938](https://arxiv.org/abs/2412.11938)).")
+    if (c := cmp("S3b_oof_label_cleaning")) and (a := _arm("S3b_oof_label_cleaning")):
+        fr = list(a["removed_fraction_per_fold"].values())
+        lines.append(f"- **S3b label cleaning removed {100 * min(fr):.1f}–{100 * max(fr):.1f}% of training patches per fold** "
+                     f"({100 * a['removed_fraction_valid_refit']:.1f}% in the full refit). That is about ten times "
+                     "SelfClean's 0.2% PCam label-error estimate ([arXiv:2305.17048](https://arxiv.org/abs/2305.17048)); "
+                     "if that estimate holds, most removed patches are hard but correctly labelled. "
+                     f"Δ OOF {d(c, 'oof')} exceeds the pre-registered |Δ| ≤ 0.2 pt (prediction falsified). Δ valid "
+                     f"{d(c, 'valid')} is indistinguishable from zero; the gate (point estimate ≥ 0, AUROC not lower) passed narrowly.")
+    if (c := cmp("S5_lora")) and (a := _arm("S5_lora")):
+        run = next(iter(a["lora"]["runs"].values()))
+        lines.append(f"- **S5 LoRA is the first change that clearly improves validation:** Δ valid {d(c, 'valid')}, "
+                     f"p {c['valid']['p_signflip']:.2g}; Δ fold-0 {d(c, 'oof')} vs the original. Sweep winner lr "
+                     f"{a['lora']['lr']}, rank {a['lora']['rank']}; {run['img_per_s']:.0f} img/s, so all 24 blocks were "
+                     f"kept (fallback threshold 20 img/s). Caveat: the EMA checkpoint (best of {len(run['history'])}) "
+                     "was chosen on a 10k subsample of fold 0, and the fold-0 comparison includes those patches; the "
+                     "validation comparison has no such overlap.")
+    return ["", "## S3–S5 learnings"] + lines if lines else []
+
+
 def render_ladder() -> str | None:
     rows = ladder_rows()
     if not rows:
@@ -274,7 +309,7 @@ def render_ladder() -> str | None:
                          f"valid gate passed: {s.get('valid_gate_passed')} → **{'adopted' if s['adopted'] else 'rejected'}**. Incumbent after: `{s['new_incumbent']}`.")
     else:
         lines.append("- No step decided yet; candidates of the current step are still being trained.")
-    lines += _s2_learnings(steps)
+    lines += _s2_learnings(steps) + _later_learnings()
     lines += ["", "## Notes",
               "- **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.",
               "- **Negative results** are kept and reported like positive ones.", ""]

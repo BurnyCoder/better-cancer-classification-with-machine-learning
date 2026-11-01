@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PCam Hibou-L Hill-Climb</title>
+<meta name="description" content="Pre-registered hill-climbing of the Hibou-L pathology foundation model on PatchCamelyon: every step, control and baseline with slide-level confidence intervals.">
+<!-- Plotly (pinned) for interactive charts with hover tooltips: https://plotly.com/javascript/ -->
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #fcfcfb; --surface-2: #f3f2ef; --ink: #0b0b0b; --ink-2: #52514e; --grid: #e4e3df;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --muted: #8a8985; --good: #1baf7a; --bad: #e34948;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface: #1a1a19; --surface-2: #232321; --ink: #f0efec; --ink-2: #c3c2b7; --grid: #34332f;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --muted: #8f8e88; --good: #199e70; --bad: #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface: #1a1a19; --surface-2: #232321; --ink: #f0efec; --ink-2: #c3c2b7; --grid: #34332f;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --muted: #8f8e88; --good: #199e70; --bad: #e66767;
+  }
+  body { margin: 0; background: var(--surface); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 6px; } h2 { font-size: 19px; margin: 36px 0 8px; }
+  p, li { color: var(--ink-2); } a { color: var(--s1); }
+  .links { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0 18px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .tile { background: var(--surface-2); border-radius: 10px; padding: 14px 16px; }
+  .tile .v { font-size: 26px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 13px; color: var(--ink-2); }
+  .chart { width: 100%; min-height: 320px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--ink-2); font-weight: 600; cursor: pointer; }
+  .scroll { overflow-x: auto; }
+  .pill { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); }
+  .note { font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Hill-climbing Hibou-L on PatchCamelyon</h1>
+  <p>A pre-registered attempt to improve <a href="https://huggingface.co/histai/hibou-L">Hibou-L</a>, the best
+    published pathology foundation model on the official PCam test split, one evidence-backed step at a time.
+    Every step is chosen by slide-grouped cross-validation on train and gated on validation. The test split stays sealed until
+    the ladder is frozen. Intervals are 95% slide-cluster bootstrap CIs.</p>
+  <div class="links">
+    <a href="https://github.com/BurnyCoder/better-cancer-classification-with-machine-learning">Code &amp; reports</a>
+    <a href="https://github.com/BurnyCoder/better-cancer-classification-with-machine-learning/blob/main/reports/preregistration.md">Pre-registration</a>
+    <a href="https://huggingface.co/collections/BurnyCoder/pcam-hill-climbing-of-hibou-l-6ae69845aceb3bbab4777782">Hugging Face collection</a>
+  </div>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>The ladder: each step's candidates vs. the incumbent (train OOF)</h2>
+  <p class="note">Dots are seed-averaged out-of-fold balanced accuracy; whiskers are 95% slide-bootstrap CIs. A step is
+    adopted only if its best candidate beats the incumbent (Holm-corrected per-slide sign-flip test) and passes the
+    validation no-harm gate.</p>
+  <div id="ladder" class="chart"></div>
+
+  <h2>Backbones: frozen CLS + eva linear probe (train OOF)</h2>
+  <div id="scan" class="chart"></div>
+
+  <h2 id="test-h">Sealed test and out-of-distribution hospitals</h2>
+  <div id="test"></div>
+
+  <h2>All arms</h2>
+  <p class="note">Only aggregate metrics are shown. Per-patch outputs of models with non-redistributable licences
+    (Virchow2, Phikon) are never published.</p>
+  <div class="scroll"><table id="arms"></table></div>
+</main>
+<script>
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = x => (x == null ? "—" : x.toFixed(4));
+const layoutBase = h => ({
+  height: h, margin: {l: 240, r: 30, t: 10, b: 50}, paper_bgcolor: css("--surface"), plot_bgcolor: css("--surface"),
+  font: {color: css("--ink-2"), size: 12}, xaxis: {gridcolor: css("--grid"), zeroline: false, title: "Balanced accuracy"},
+  yaxis: {automargin: true}, showlegend: true, legend: {orientation: "h", y: -0.2}
+});
+function dotTrace(rows, color, name) {
+  return {type: "scatter", mode: "markers", name, x: rows.map(r => r.ba), y: rows.map(r => r.label),
+    marker: {size: 10, color, line: {color: css("--surface"), width: 2}},
+    error_x: {type: "data", symmetric: false, array: rows.map(r => r.hi - r.ba), arrayminus: rows.map(r => r.ba - r.lo),
+              color, thickness: 2, width: 0},
+    hovertemplate: "<b>%{x:.4f}</b><br>%{y}<br>95% CI [%{customdata[0]:.4f}, %{customdata[1]:.4f}]<extra></extra>",
+    customdata: rows.map(r => [r.lo, r.hi])};
+}
+function el(tag, text) { const e = document.createElement(tag); if (text != null) e.textContent = text; return e; }
+
+fetch("data/results.json").then(r => r.json()).then(d => {
+  // Headline tiles
+  const tiles = document.getElementById("tiles");
+  const tile = (v, l) => { const t = el("div"); t.className = "tile"; t.append(el("div", v), el("div", l));
+    t.firstChild.className = "v"; t.lastChild.className = "l"; tiles.append(t); };
+  if (d.gate) tile(fmt(d.gate.valid_ba_seed_mean), `Reproduced eva Hibou-L valid BA (published 0.939): ${d.gate.pass ? "pass" : "fail"}`);
+  const s0 = d.arms["S0_hibou_l_cls_linear"];
+  if (s0) tile(fmt(s0.oof.ba), "S0 incumbent, train OOF BA");
+  if (d.ladder && d.ladder.incumbent && d.arms[d.ladder.incumbent] && d.arms[d.ladder.incumbent].oof)
+    tile(fmt(d.arms[d.ladder.incumbent].oof.ba), `Current incumbent (${d.ladder.incumbent}), OOF BA`);
+  if (d.final && d.final.confirmatory && d.final.confirmatory.H1) tile(
+    (d.final.confirmatory.H1.delta_ba >= 0 ? "+" : "") + (100 * d.final.confirmatory.H1.delta_ba).toFixed(2) + " pt",
+    "H1: final vs. baseline on sealed test (BA)");
+
+  // Ladder chart
+  const rows = [], adoptedRows = [];
+  for (const st of d.steps) {
+    const inc = d.arms[st.incumbent];
+    if (inc && inc.oof) rows.push({label: `${st.step} · incumbent`, ...inc.oof});
+    for (const c of st.candidates) {
+      const a = d.arms[c]; if (!a || !a.oof) continue;
+      const r = {label: `${st.step} · ${c}`, ...a.oof};
+      (st.adopted && c === st.winner ? adoptedRows : rows).push(r);
+    }
+  }
+  if (rows.length) Plotly.newPlot("ladder", [dotTrace(rows, css("--muted"), "candidate / incumbent"),
+    dotTrace(adoptedRows, css("--s1"), "adopted")], layoutBase(Math.max(320, 30 * (rows.length + adoptedRows.length) + 90)),
+    {displayModeBar: false, responsive: true});
+  else document.getElementById("ladder").append(el("p", "Ladder steps will appear here as they finish."));
+
+  // Backbone scan
+  const scan = Object.entries(d.arms).filter(([n]) => n.startsWith("S0_scan_") || n === "S0_hibou_l_cls_linear")
+    .map(([n, a]) => ({label: a.label, group: a.group, ...a.oof})).sort((a, b) => a.ba - b.ba);
+  const groups = [["Hibou-L", "--s1"], ["other foundation model", "--s2"], ["control", "--muted"]];
+  Plotly.newPlot("scan", groups.map(([g, c]) => dotTrace(scan.filter(r => r.group === g), css(c), g)),
+    layoutBase(Math.max(260, 30 * scan.length + 90)), {displayModeBar: false, responsive: true});
+
+  // Test section
+  const test = document.getElementById("test");
+  if (!d.final) test.append(el("p", "Sealed. The test split and WILDS are scored once, after the ladder is frozen and tagged."));
+  else {
+    const tbl = el("table"); const hdr = el("tr");
+    ["Hypothesis", "Δ BA", "95% CI", "Holm p", "Supported"].forEach(h => hdr.append(el("th", h))); tbl.append(hdr);
+    for (const [k, v] of Object.entries(d.final.confirmatory)) {
+      const tr = el("tr");
+      [k, (100 * v.delta_ba).toFixed(2) + " pt", `[${(100 * v.ci_ba[0]).toFixed(2)}, ${(100 * v.ci_ba[1]).toFixed(2)}]`,
+       v.p_holm.toPrecision(3), v.supported ? "yes" : "no"].forEach(x => tr.append(el("td", x)));
+      tbl.append(tr);
+    }
+    test.append(tbl);
+  }
+
+  // All-arms table
+  const t = document.getElementById("arms"); const h = el("tr");
+  ["Arm", "Backbones", "OOF BA", "OOF 95% CI", "Valid BA", "Valid 95% CI", "Publishable"].forEach(x => h.append(el("th", x)));
+  t.append(h);
+  for (const [n, a] of Object.entries(d.arms)) {
+    const tr = el("tr");
+    [n, a.backbones.join(", ") || "—", fmt(a.oof && a.oof.ba), a.oof ? `[${fmt(a.oof.lo)}, ${fmt(a.oof.hi)}]` : "—",
+     fmt(a.valid.ba), `[${fmt(a.valid.lo)}, ${fmt(a.valid.hi)}]`, a.publishable ? "yes" : "aggregates only"]
+      .forEach(x => tr.append(el("td", x)));
+    t.append(tr);
+  }
+});
+</script>
+</body>
+</html>

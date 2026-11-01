@@ -15,6 +15,7 @@
 |---|---|---|---|---|---|---|
 | S1 representation | `S1_b_cls24_mean24` | 0.9491 [0.9353, 0.9598] | -0.07 pt [-0.24, +0.06] | 0.426 | 0.9353 | -0.14 pt |
 | S1 representation | `S1_c_dinov2_last4` | 0.9457 [0.9303, 0.9573] | -0.40 pt [-0.89, -0.12] | 0.0284 | 0.9316 | -0.51 pt |
+| S1 representation | `S1_d_spread_6_12_18_24` | 0.9469 [0.9318, 0.9585] | -0.29 pt [-0.69, -0.04] | 0.0931 | 0.9326 | -0.41 pt |
 
 ## Step decisions (pre-registered rule)
 - No step decided yet; candidates of the current step are still being trained.

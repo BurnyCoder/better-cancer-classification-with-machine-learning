@@ -27,6 +27,10 @@ def _ba(block: dict) -> str:
     return f"{block['ba']:.4f} [{lo:.4f}, {hi:.4f}]"
 
 
+CONTROL_MODELS = {"S0_scan_dinov2_reg_l": "DINOv2-L/14-reg4 with natural-image weights: Hibou-L's architecture without pathology pretraining",
+                  "S0_scan_random_vitl_reg4": "ViT-L/14-reg4 with random weights, seed 0: the same architecture without any pretraining"}
+
+
 def render_stage_a() -> str | None:
     dv, parity, gate, s0 = _j("data_verification.json"), _j("parity.json"), _j("h2_gate.json"), _arm("S0_hibou_l_cls_linear")
     eva = _arm("S0_eva_exact_hibou_l")
@@ -83,13 +87,25 @@ def render_stage_a() -> str | None:
             continue
         oof = _ba(r["oof"]["seed_avg"]) if "oof" in r else "—"
         lines.append(f"- `{name}`: OOF BA {oof}; valid BA {_ba(r['valid']['seed_avg'])}. {r['description']}.")
+    models = {n: _arm(n) for n in CONTROL_MODELS}
+    for name, r in models.items():
+        if r is not None:
+            lines.append(f"- `{name}` ({CONTROL_MODELS[name]}): OOF BA {_ba(r['oof']['seed_avg'])}; valid BA {_ba(r['valid']['seed_avg'])}. "
+                         "Same CLS + eva linear head, CV protocol, 1 seed.")
     lines += [
         "",
         "**Interpretation:**",
         "- Shuffled labels land at chance, so no leakage path lets labels reach the predictions.",
         "- A 96-bin colour histogram already separates tumour from normal far above chance, because tumour is more hyperchromatic. It stays far below the foundation model.",
-        "",
     ]
+    if all(models.values()):
+        nat, rnd = (models[n]["oof"]["seed_avg"]["ba"] for n in CONTROL_MODELS)
+        hib, col = s0["oof"]["seed_avg"]["ba"], ctrl["control_color_histogram"]["oof"]["seed_avg"]["ba"]
+        lines.append(f"- **Same architecture, different weights** (unpaired point estimates, OOF BA): pathology pretraining (Hibou-L) "
+                     f"is {100 * (hib - nat):.1f} pt above natural-image pretraining (DINOv2-L), which is {100 * (nat - rnd):.1f} pt above "
+                     f"random weights. Random-weight features score close to the colour histogram ({rnd:.3f} vs. {col:.3f}), consistent "
+                     "with them carrying mostly colour and texture statistics (not tested directly).")
+    lines.append("")
     if wilds:
         hc = wilds["hospital_check"]
         lines += [
@@ -172,7 +188,8 @@ def render_summary() -> str:
         lines += ["| Step | Incumbent | Best candidate | Adopted |", "|---|---|---|---|"]
         for s in steps:
             lines.append(f"| {s['step']} | `{s['incumbent']}` | `{s['winner']}` | {'yes' if s['adopted'] else 'no'} |")
-        lines.append(f"\nCurrent incumbent: `{lad.get('incumbent')}`.\n")
+        lines.append(f"\nBest Hibou-L pipeline: `{lad.get('hibou_incumbent', lad.get('incumbent'))}`. Frozen-feature incumbent "
+                     f"(the input to the postponed S4 fusion): `{lad.get('incumbent')}`.\n")
     else:
         lines.append("No ladder step decided yet.\n")
     lines += ["## Networks", "",
@@ -190,7 +207,7 @@ def render_summary() -> str:
 
 
 STEP_OF = {"S1_": "S1 representation", "S2_": "S2 head", "S3_": "S3 D4 TTA", "S3b_": "S3b label cleaning",
-           "S5_": "S5 LoRA", "S5b_": "S5b weight space"}
+           "S5_": "S5 LoRA", "S5b_": "S5b weight space", "H4_": "H4 control (frozen, LoRA's augmentation)"}
 
 
 def ladder_rows() -> list[dict]:
@@ -243,17 +260,47 @@ def _s2_learnings(steps: list[dict]) -> list[str]:
     return lines
 
 
+def _pt(cm: dict, part: str) -> str:
+    """Paired Δ BA with its 95% CI in points, e.g. '+0.77 pt [+0.27, +1.41]'."""
+    x = cm[part]
+    return f"{100 * x['delta_ba']:+.2f} pt [{100 * x['ci_ba'][0]:+.2f}, {100 * x['ci_ba'][1]:+.2f}]"
+
+
+def ladder_findings() -> list[str]:
+    """Headline findings of releases 2+, one sentence each, every number from results/. Shared by the
+    paper's abstract and conclusion and the README highlights."""
+    rows, out = ladder_rows(), []
+    if not rows:
+        return out
+    steps = [json.loads(p.read_text()) for p in sorted((PATHS.results / "steps").glob("*.json"), key=lambda p: p.stat().st_mtime)]
+    adopted = [s["step"] for s in steps if s["adopted"]]
+    out.append(f"Of {len(steps)} decided ladder steps, {len(adopted)} were adopted ({', '.join(f'`{s}`' for s in adopted) or 'none'}).")
+    frozen = [r for r in rows if not r["arm"].startswith(("S5", "H4"))]
+    if frozen:
+        top = max(frozen, key=lambda r: r["cmp"]["valid"]["delta_ba"])
+        sig = any(r["cmp"]["valid"]["ci_ba"][0] > 0 for r in frozen)
+        out.append(f"{'At least one' if sig else 'No'} frozen-feature classifier has a validation gain whose 95% CI excludes zero "
+                   f"(largest: {_pt(top['cmp'], 'valid')}, `{top['arm']}`).")
+    s0, s5, s5c = _arm("S0_hibou_l_cls_linear"), _arm("S5_lora"), _j("comparisons/S5_lora_vs_baseline.json")
+    if s5 and s5c:
+        out.append(f"LoRA fine-tuning raises validation BA from {s0['valid']['seed_avg']['ba']:.4f} to {s5['valid']['seed_avg']['ba']:.4f} "
+                   f"(paired Δ {_pt(s5c, 'valid')}).")
+    if h4c := _j("comparisons/S5_lora_vs_H4_aug_control.json"):
+        out.append(f"LoRA also beats a frozen head trained on the same images with the same augmentation (Δ valid {_pt(h4c, 'valid')}).")
+    models = [_arm(n) for n in CONTROL_MODELS]
+    if all(models):
+        out.append(f"With Hibou-L's architecture, natural-image weights reach {models[0]['oof']['seed_avg']['ba']:.3f} and random weights "
+                   f"{models[1]['oof']['seed_avg']['ba']:.3f} OOF BA, against {s0['oof']['seed_avg']['ba']:.3f} for Hibou-L.")
+    return out
+
+
 def _later_learnings() -> list[str]:
     """S3, S3b and S5 learnings, every number read from the arm, comparison and sweep files."""
     def cmp(arm):
         p = PATHS.results / "comparisons" / f"{arm}_vs_baseline.json"
         return json.loads(p.read_text()) if p.exists() else None
 
-    def d(c, part):  # "+0.27 pt [+0.10, +0.50]"
-        x = c[part]
-        return f"{100 * x['delta_ba']:+.2f} pt [{100 * x['ci_ba'][0]:+.2f}, {100 * x['ci_ba'][1]:+.2f}]"
-
-    lines = []
+    d, lines = _pt, []
     if c := cmp("S3_d4_tta"):
         lines.append(f"- **S3 D4 TTA does not help.** Same heads with and without 8-view averaging: Δ OOF (train-64k) "
                      f"{d(c, 'oof')}, p {c['oof']['p_signflip']:.2g}. Δ valid vs the original {d(c, 'valid')}. "
@@ -275,7 +322,19 @@ def _later_learnings() -> list[str]:
                      f"kept (fallback threshold 20 img/s). Caveat: the EMA checkpoint (best of {len(run['history'])}) "
                      "was chosen on a 10k subsample of fold 0, and the fold-0 comparison includes those patches; the "
                      "validation comparison has no such overlap.")
-    return ["", "## S3–S5 learnings"] + lines if lines else []
+    if s := _j("steps/S5b_weight_space.json"):
+        per = "; ".join(f"α {n.rsplit('_', 1)[1]}: {d(c, 'valid')}" for n, c in s["comparisons"].items())
+        lines.append(f"- **S5b WiSE scaling does not help:** pulling the LoRA weights back toward the LP-FT start lowers "
+                     f"validation BA, more so the further it goes (Δ valid vs LoRA, {per}). On the fold-0 selection set the "
+                     f"best α ({s['winner'].rsplit('_', 1)[1]}) changes BA by {d(s['comparisons'][s['winner']], 'oof')}. WiSE-FT's gains were "
+                     "reported mainly under distribution shift ([arXiv:2109.01903](https://arxiv.org/abs/2109.01903)); in-distribution "
+                     "validation cannot test that, and the WILDS check is still sealed.")
+    if (c := cmp("H4_aug_control")) and (h := _j("comparisons/S5_lora_vs_H4_aug_control.json")):
+        lines.append(f"- **H4 control: a frozen Hibou-L head trained on LoRA's training patches under the same D4 + HED "
+                     f"augmentation.** It differs from the original by {d(c, 'oof')} on fold 0 and {d(c, 'valid')} on valid. "
+                     f"LoRA beats it by {d(h, 'oof')} on fold 0 (p {h['oof']['p_signflip']:.2g}) and {d(h, 'valid')} on valid "
+                     f"(p {h['valid']['p_signflip']:.2g}). This is descriptive: the pre-registered H4 test uses the sealed test split.")
+    return ["", "## S3–S5 learnings and the H4 control"] + lines if lines else []
 
 
 def render_ladder() -> str | None:

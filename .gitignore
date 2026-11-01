@@ -13,7 +13,7 @@ wheels/
 .env
 
 # Large local artifacts (data, embeddings, checkpoints live on D:\AI)
-data/
+/data/
 cache/
 checkpoints/
 *.h5

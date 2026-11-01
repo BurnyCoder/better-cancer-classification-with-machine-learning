@@ -27,7 +27,6 @@ def _cell(x) -> str:
 
 
 def _table(header: list, rows: list) -> str:
-    cells = ", ".join(_cell(h) for h in header) + ",\n" + ",\n".join(", ".join(_cell(c) for c in r) for r in rows)
     return (f"#table(columns: {len(header)}, stroke: 0.4pt + luma(200), inset: 4pt, align: left,\n"
             f"  table.header({', '.join('[*' + str(h) + '*]' for h in header)}),\n  " +
             ",\n  ".join(", ".join(_cell(c) for c in r) for r in rows) + ")")
@@ -57,10 +56,12 @@ REFS = [
     ("holm", "S. Holm. A simple sequentially rejective multiple test procedure. Scand. J. Stat. 1979.", "https://www.jstor.org/stable/4615733"),
     ("selfclean", "F. Gröger et al. Intrinsic self-supervision for data quality audits (SelfClean). 2023.", "https://arxiv.org/abs/2305.17048"),
     ("panda", "PANDA challenge 1st-place solution (PND): OOF-based label-noise removal.", "https://github.com/kentaroy47/Kaggle-PANDA-1st-place-solution"),
-    ("hcd", "Kaggle Histopathologic Cancer Detection solution write-up (TTA and ensembling). 2019.", "https://arxiv.org/abs/1906.09587"),
+    ("hcd", "A. Jaiswal et al. Semi-supervised learning for cancer detection of lymph node metastases. CVPR Workshops 2019 (Kaggle PCam data; TTA inside a model ensemble).", "https://arxiv.org/abs/1906.09587"),
+    ("polyak", "B. T. Polyak, A. B. Juditsky. Acceleration of stochastic approximation by averaging. SIAM J. Control Optim. 1992.", "https://doi.org/10.1137/0330046"),
+    ("tomar", "D. Tomar, A. Binder, A. Kleppe. Are nuclear masks all you need for improved out-of-domain generalisation? NeurIPS 2024 (CAMELYON17 scanners per centre, Sec. 4.1).", "https://arxiv.org/abs/2411.09373"),
     ("peft", "Z. Mai et al. Lessons and insights from a unifying study of parameter-efficient fine-tuning in visual recognition. 2024.", "https://arxiv.org/abs/2409.16434"),
-    ("rotinv", "Are the latent representations of foundation models for pathology invariant to rotation? 2024.", "https://arxiv.org/abs/2412.11938"),
-    ("seg2404", "Pre-processing matters: a segment search method for WSI classification (CAMELYON17 centre names). 2024.", "https://arxiv.org/abs/2404.11161"),
+    ("rotinv", "M. Elphick, S. Turajlic, G. Yang. Are the latent representations of foundation models for pathology invariant to rotation? 2024.", "https://arxiv.org/abs/2412.11938"),
+    ("seg2404", "J. Wang et al. BAHOP: Similarity-based basin hopping for a fast hyper-parameter search in WSI classification. 2024 (v1 lists CAMELYON17 centre names).", "https://arxiv.org/abs/2404.11161"),
 ]
 CITE = {k: i + 1 for i, (k, _, _) in enumerate(REFS)}
 
@@ -77,7 +78,7 @@ def build_paper() -> str | None:
     ctrl = {k: _j(f"arms/{k}.json") for k in ("control_shuffled_labels", "control_color_histogram", "control_majority")}
     pub, wilds, pool = _j("published_baselines.json"), _j("wilds_data.json"), _j("model_pool.json")
     steps = sorted((PATHS.results / "steps").glob("*.json")) if (PATHS.results / "steps").exists() else []
-    from pcam_hc.report_experiments import CONTROL_MODELS, _pt, ladder_findings, ladder_rows
+    from pcam_hc.report_experiments import CONTROL_MODELS, _pt, frozen_changes, ladder_findings, ladder_rows, ref_label, review_findings, seed_offset
 
     lrows = ladder_rows()
     decided = [json.loads(p.read_text()) for p in sorted(steps, key=lambda p: p.stat().st_mtime)]
@@ -157,7 +158,7 @@ def build_paper() -> str | None:
     a(f"No slide is shared between splits. There are many exact duplicates *within* splits (train {dv['train_within_split_duplicates']:,}, valid {dv['valid_within_split_duplicates']:,}, test {dv['test_within_split_duplicates']:,}), "
       "consistent with PCam's probabilistic sampling. Slide-grouped folds keep them inside one fold. "
       f"Across splits, {dv['cross_duplicates_train_test']} test images are pixel-identical to train images. All of them come from `camelyon16_test_049` and `camelyon16_train_tumor_036`, at identical slide coordinates. "
-      "CAMELYON16 documentation lists test_049 as a duplicate slide that was removed from the official release, yet PCam's test split contains it. "
+      "Secondary sources (the eva documentation) report that a duplicate CAMELYON16 test slide was removed from the official release; PCam's test split still contains test_049. "
       "With the test split still sealed, we added a pre-registered sensitivity analysis that excludes this slide.")
     a("== Exact reproduction of the published probe (H2)")
     a(f"Against eva running Hibou's remote code on 256 validation patches, our fp32 embeddings agree to a mean cosine of {parity['fp32_cpu']['mean_cosine']:.6f} (max |Δ| {parity['fp32_cpu']['max_abs_diff']:.1e}). "
@@ -199,15 +200,17 @@ def build_paper() -> str | None:
           f"PCam train slides grouped by the assumed Camelyon16 numbering (RUMC vs. UMCU) differ in colour (L1 {hc['pcam_assumed_hospital_split_l1']:.2f}) far more than a random split ({hc['pcam_random_slide_split_l1']:.2f}). "
           f"WILDS centre 2, the official WILDS *test* hospital, is closest to UMCU ({hc['l1_distance_to_pcam_hospital']['2']['UMCU']:.2f} vs. {hc['l1_distance_to_pcam_hospital']['2']['RUMC']:.2f}). "
           f"It is therefore a Camelyon16 source hospital and not out-of-distribution for PCam-trained models. "
-          f"Our primary OOD pool is centres 0, 1 and 4 (CWZ, RST, LPON {c('seg2404', 'camelyon')}).")
+          f"The pre-registered primary OOD pool is centres 0, 1 and 4, reported as CWZ, RST and LPON {c('seg2404')}. "
+          f"This mapping is uncertain: centres 0, 3 and 4 share one scanner {c('tomar')}, and the per-hospital scanners in {c('camelyon')} then place RUMC, a Camelyon16 source hospital, among centres 0, 3 and 4. "
+          "The pool is therefore re-examined and logged before WILDS is unsealed.")
     a("")
     if lrows:
         a("== Improvement ladder")
         a("Hibou-L stays frozen in S1–S3b; each candidate trains a new classifier on features read from it (5 slide-grouped folds; 5 seeds for S1 b–e, 1 seed from S1 f on, by the author's decision; seed sensitivity is postponed). "
           "Each classifier is compared with the original probe, paired on the same patches. Per-candidate p-values are descriptive; "
           "the pre-registered adoption rule applies Holm within a step and the validation no-harm gate.")
-        a(_table(["Step", "Classifier", "OOF BA [95% CI]", "Δ OOF vs original [95% CI] (pt)", "p", "Δ valid (pt)"],
-                 [[r["step"], r["arm"], _ba(r["oof"]),
+        a(_table(["Step", "Classifier", "OOF BA [95% CI]", "OOF reference (patches)", "Δ OOF vs reference [95% CI] (pt)", "p", "Δ valid vs original (pt)"],
+                 [[r["step"], r["arm"], _ba(r["oof"]), ref_label(r["cmp"]),
                    f"{100 * r['cmp']['oof']['delta_ba']:+.2f} [{100 * r['cmp']['oof']['ci_ba'][0]:+.2f}, {100 * r['cmp']['oof']['ci_ba'][1]:+.2f}]",
                    f"{r['cmp']['oof']['p_signflip']:.3g}", f"{100 * r['cmp']['valid']['delta_ba']:+.2f}"] for r in lrows]))
         a("")
@@ -219,17 +222,54 @@ def build_paper() -> str | None:
         if h4c:
             a("== H4 augmentation-matched control")
             a(f"LoRA trains on augmented images, so its gain could come from the augmentation rather than from adapting the backbone {c('tellez')}. "
-              "The H4 control trains a frozen Hibou-L linear head on the same LoRA training patches, each embedded under one seeded random D4 + HED-light view. "
+              "The H4 control trains a frozen Hibou-L linear head on the same LoRA training patches, each embedded under one seeded random D4 + HED view (σ = 0.05). "
               f"LoRA − H4: {pt(h4c, 'oof')} on fold 0 and {pt(h4c, 'valid')} on validation (paired slide bootstrap). "
               "These differences are descriptive; the pre-registered H4 test is scored on the sealed test split.")
             a("")
+        if (PROJECT_ROOT / "reports" / "figures" / "lora_training.png").exists():
+            a('#figure(image("../figures/lora_training.png", width: 100%), caption: [S5 LoRA final run. Left: single-minibatch BCE loss every 50 steps '
+              "(log scale) and its running mean. Right: BA of the EMA weights on the 10k fold-0 checkpoint subsample (zoomed y-axis); the best checkpoint is kept.])")
+            a("")
+        ex_ = _j("examples.json")
+        if ex_:
+            sizes = "; ".join(f"{k}: {v:,}" for k, v in ex_["groups"].items())
+            a('#figure(image("../figures/examples.png", width: 88%), caption: [Example outputs on validation patches with each model\'s tumour probability: '
+              f"the original probe (baseline), LoRA (new method), and two controls. Rows are outcome groups of original vs. LoRA ({sizes} patches); "
+              f"{ex_['rule']}, so the examples are not hand-picked.])")
+            a("")
+    a("= Related work")
+    a(f"*Frozen-probe benchmarks.* Pathology FMs are ranked on PCam with frozen backbones and linear probes {c('eva', 'midnight')}; "
+      f"Hibou-L {c('hibou')} leads the eva leaderboard, ahead of models trained on far larger or different cohorts {c('gigapath', 'virchow2')}. "
+      f"*Adapting FMs.* A benchmark of adaptation strategies reports LoRA above both linear probing and full fine-tuning for UNI on PCam {c('lee2024')}; "
+      f"LP-FT {c('lpft')} and weight-space interpolation {c('wise', 'soups')} were proposed to keep pretrained features robust under shift. "
+      f"*Data-centric fixes.* Out-of-fold label cleaning won PANDA {c('panda')}, SelfClean estimates PCam's label-error rate {c('selfclean')}, "
+      f"TTA was part of strong ensembles on Kaggle's PCam data {c('hcd')}; rotation invariance varies widely across pathology FMs, and Hibou-L, trained with rotations and flips {c('hibou')}, was the most invariant by cosine distance {c('rotinv')}. "
+      f"*Representations.* Multi-layer and attentive probes improve frozen natural-image ViTs {c('multilayer', 'dinov2')}. "
+      "This study tests these ideas on the strongest frozen model under one pre-registered, slide-clustered protocol.")
+    a("")
+    a("= Discussion")
+    worse = [r for r in frozen_changes(lrows) if r["cmp"]["valid"]["ci_ba"][1] < 0]
+    a("*Why frozen-feature tricks did not transfer.* Hibou-L starts near the frozen-probe ceiling, its pretraining already included rotations and flips, "
+      "and the reported multi-layer gains were measured on natural-image ViTs. No frozen-feature change improved validation BA beyond its confidence interval"
+      + (f"; {len(worse)} have validation bootstrap CIs below zero ("
+         + ", ".join(f"`{r['arm']}` p = {r['cmp']['valid']['p_signflip']:.2g}" for r in worse)
+         + "; unadjusted sign-flip p, and one-seed arms include the seed term in Limitations)" if worse else "") + ". "
+      "Label cleaning was adopted on cross-validation, but it removed about ten times more patches than SelfClean's label-error estimate; "
+      "if that estimate holds, it also drops hard, correctly labelled patches.")
+    a("*Why LoRA helped.* The H4 control targets the augmentation: a frozen head trained on the same augmented images is no better than the original, "
+      "while LoRA is clearly better. This suggests that the gain comes from adapting the backbone's attention layers rather than from the augmentation, "
+      "although the two arms also differ in optimiser and schedule, and the stain augmentation is strong (Limitations), which may handicap a frozen head scored on clean images more than LoRA. Shrinking the LoRA update (WiSE) lowered validation BA, more so the further it was shrunk; "
+      "WiSE-FT targets robustness under distribution shift, which only the sealed WILDS evaluation can test.")
+    a("*Strength of the evidence.* All results are on cross-validation and the 54-slide validation split, with one seed per arm and one LoRA run. "
+      "They are hedged findings until the sealed test split and the out-of-hospital WILDS pool are scored once.")
+    a("")
     a("= Planned and postponed analyses")
     a(f"The pre-registered ladder follows. Steps decided so far: {len(steps)}.")
     a(f"- S1 representation: last-layer CLS, CLS+mean, DINOv2 last-4-layer {c('dinov2')}, spread layers {c('multilayer')}, centre tokens and a centre-crop view.")
     a("- S2 heads: linear, nested-CV logistic regression, MLP.")
     a(f"- S3 D4 TTA {c('hcd', 'rotinv')}; S3b OOF label cleaning {c('panda', 'selfclean')}.")
     a(f"- S4 fusion with other FMs {c('caruana', 'gigapath', 'virchow2')}.")
-    a(f"- S5 LoRA {c('lora', 'lee2024')} with LP-FT {c('lpft')}, HED augmentation {c('tellez')}, drop-path and EMA {c('peft')}; S5b WiSE scaling and soups {c('wise', 'soups')}.")
+    a(f"- S5 LoRA {c('lora', 'lee2024')} with LP-FT {c('lpft')}, HED augmentation {c('tellez')}, drop-path {c('peft')} and weight averaging (EMA) {c('polyak')}; S5b WiSE scaling and soups {c('wise', 'soups')}.")
     a("- S6 final combination.")
     a("Then the confirmatory tests on the sealed test split (H1, H1b, H4) and on WILDS (H6). "
       "By the author's decision, ablations that require training new models and the separate seed/hyperparameter sensitivity analysis are postponed to a later release.")
@@ -247,21 +287,27 @@ def build_paper() -> str | None:
     a("- The WILDS centre-to-hospital mapping rests on one paper plus a colour-signature check, and the WILDS data come from a community mirror.")
     a("- Results so far are from cross-validation and validation only.")
     a("- From S1 f on, every arm uses one seed, and LoRA is a single run: seed variance of the ladder arms is unmeasured (sensitivity study postponed).")
+    if so := seed_offset():
+        a(f"- Seed-count confounder: the original's validation BA averages 5 seeds (per-seed SD {100 * so['valid_seed_sd']:.2f} pt), and the same recipe "
+          f"with seed 0 alone scores {pt(so['cmp'], 'valid')} on validation. One-seed linear-head arms are compared with that 5-seed average, so their "
+          "Δ valid vs. the original includes a seed term of this size; no adoption decision depends on it.")
     lr = _j("arms/S2_logreg.json")
     if lr and set(lr["chosen_C_per_fold"]) == {min(map(float, lr["cv_ba_per_C"]))}:
         a("- S2's logistic regression chose the smallest C on the pre-registered grid in every fold, so the optimum may lie outside the grid.")
+    for f in review_findings():  # code-review findings on S5/H4; the code is fixed, the reported S5/H4 runs predate the fixes
+        a(f"- {f}")
     a("")
     a("= Conclusion")
     a("The published Hibou-L PCam probe is reproducible to within 0.001 BA with an independent, remote-code-free implementation. "
       "Two data issues that would have contaminated evaluation (a duplicated test slide and an in-distribution WILDS test hospital) were caught and handled before any test data was used."
       + findings + " Whether the gains hold on the test split and across hospitals is the next, sealed, question.")
     a("")
-    a("= AI statement")
-    a("This codebase and paper were written by Claude Code (Anthropic), executing a specification provided by a human author, Libor Burian. Human cleanup and rewriting are in progress.")
-    a("")
     a("= References")
     for k, text, url in REFS:
         a(f"[{CITE[k]}] {text} #link(\"{url}\")[{url}] \\")
+    a("")
+    a("= AI statement")
+    a("This codebase and paper were written by Claude Code (Anthropic), executing a specification provided by a human author, Libor Burian. Human cleanup and rewriting are in progress.")
     return "\n".join(t)
 
 

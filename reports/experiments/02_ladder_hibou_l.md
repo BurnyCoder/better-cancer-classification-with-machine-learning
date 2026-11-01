@@ -11,23 +11,23 @@
 - **Interpretation:** these per-candidate p-values are descriptive. The pre-registered adoption decision applies Holm across a step's candidates plus the validation no-harm gate.
 
 ## Classifiers trained so far
-| Step | Classifier | OOF BA [95% CI] | Δ OOF vs original [95% CI] | sign-flip p | Valid BA | Δ valid vs original |
-|---|---|---|---|---|---|---|
-| H4 control (frozen, LoRA's augmentation) | `H4_aug_control` | 0.9731 [0.9568, 0.9823] | +0.20 pt [-0.10, +0.84] | 0.518 | 0.9344 | -0.23 pt |
-| S1 representation | `S1_b_cls24_mean24` | 0.9491 [0.9353, 0.9598] | -0.07 pt [-0.24, +0.06] | 0.426 | 0.9353 | -0.14 pt |
-| S1 representation | `S1_c_dinov2_last4` | 0.9457 [0.9303, 0.9573] | -0.40 pt [-0.89, -0.12] | 0.0284 | 0.9316 | -0.51 pt |
-| S1 representation | `S1_d_spread_6_12_18_24` | 0.9469 [0.9318, 0.9585] | -0.29 pt [-0.69, -0.04] | 0.0931 | 0.9326 | -0.41 pt |
-| S1 representation | `S1_e_best_plus_centre_tokens` | 0.9496 [0.9361, 0.9599] | -0.01 pt [-0.14, +0.11] | 0.826 | 0.9352 | -0.15 pt |
-| S1 representation | `S1_f_best_plus_centre_view` | 0.9497 [0.9362, 0.9599] | -0.01 pt [-0.15, +0.17] | 0.944 | 0.9354 | -0.13 pt |
-| S2 head | `S2_logreg` | 0.9510 [0.9378, 0.9610] | +0.12 pt [+0.04, +0.31] | 0.0236 | 0.9365 | -0.02 pt |
-| S2 head | `S2_mlp` | 0.9312 [0.9112, 0.9462] | -1.85 pt [-2.81, -1.17] | 0.0001 | 0.9054 | -3.13 pt |
-| S3 D4 TTA | `S3_d4_tta` | 0.9522 [0.9396, 0.9617] | +0.04 pt [-0.02, +0.13] | 0.247 | 0.9343 | -0.24 pt |
-| S3 D4 TTA | `S3_no_tta_train64k` | 0.9517 [0.9391, 0.9615] | +0.01 pt [-0.03, +0.10] | 0.779 | 0.9352 | -0.15 pt |
-| S3b label cleaning | `S3b_oof_label_cleaning` | 0.9525 [0.9394, 0.9624] | +0.27 pt [+0.10, +0.50] | 0.0032 | 0.9368 | +0.01 pt |
-| S5 LoRA | `S5_lora` | 0.9798 [0.9654, 0.9883] | +0.87 pt [+0.50, +1.56] | 0.0001 | 0.9444 | +0.77 pt |
-| S5b weight space | `S5b_wise_0.25` | 0.9782 [0.9638, 0.9872] | +0.72 pt [+0.45, +1.22] | 0.0001 | 0.9388 | +0.21 pt |
-| S5b weight space | `S5b_wise_0.5` | 0.9789 [0.9644, 0.9879] | +0.80 pt [+0.48, +1.33] | 0.0001 | 0.9416 | +0.49 pt |
-| S5b weight space | `S5b_wise_0.75` | 0.9798 [0.9655, 0.9885] | +0.88 pt [+0.52, +1.49] | 0.0001 | 0.9427 | +0.60 pt |
+| Step | Classifier | OOF BA [95% CI] | OOF reference (patches) | Δ OOF vs reference [95% CI] | sign-flip p | Valid BA | Δ valid vs original |
+|---|---|---|---|---|---|---|---|
+| H4 control (frozen, LoRA's augmentation) | `H4_aug_control` | 0.9731 [0.9568, 0.9823] | original (51,522) | +0.20 pt [-0.10, +0.84] | 0.518 | 0.9344 | -0.23 pt |
+| S1 representation | `S1_b_cls24_mean24` | 0.9491 [0.9353, 0.9598] | original (262,144) | -0.07 pt [-0.24, +0.06] | 0.426 | 0.9353 | -0.14 pt |
+| S1 representation | `S1_c_dinov2_last4` | 0.9457 [0.9303, 0.9573] | original (262,144) | -0.40 pt [-0.89, -0.12] | 0.0284 | 0.9316 | -0.51 pt |
+| S1 representation | `S1_d_spread_6_12_18_24` | 0.9469 [0.9318, 0.9585] | original (262,144) | -0.29 pt [-0.69, -0.04] | 0.0931 | 0.9326 | -0.41 pt |
+| S1 representation | `S1_e_best_plus_centre_tokens` | 0.9496 [0.9361, 0.9599] | original (262,144) | -0.01 pt [-0.14, +0.11] | 0.826 | 0.9352 | -0.15 pt |
+| S1 representation | `S1_f_best_plus_centre_view` | 0.9497 [0.9362, 0.9599] | original (262,144) | -0.01 pt [-0.15, +0.17] | 0.944 | 0.9354 | -0.13 pt |
+| S2 head | `S2_logreg` | 0.9510 [0.9378, 0.9610] | original (262,144) | +0.12 pt [+0.04, +0.31] | 0.0236 | 0.9365 | -0.02 pt |
+| S2 head | `S2_mlp` | 0.9312 [0.9112, 0.9462] | original (262,144) | -1.85 pt [-2.81, -1.17] | 0.0001 | 0.9054 | -3.13 pt |
+| S3 D4 TTA | `S3_d4_tta` | 0.9522 [0.9396, 0.9617] | S3_no_tta_train64k (65,536) | +0.04 pt [-0.02, +0.13] | 0.247 | 0.9343 | -0.24 pt |
+| S3 D4 TTA | `S3_no_tta_train64k` | 0.9517 [0.9391, 0.9615] | original (65,536) | +0.01 pt [-0.03, +0.10] | 0.779 | 0.9352 | -0.15 pt |
+| S3b label cleaning | `S3b_oof_label_cleaning` | 0.9525 [0.9394, 0.9624] | original (262,144) | +0.27 pt [+0.10, +0.50] | 0.0032 | 0.9368 | +0.01 pt |
+| S5 LoRA | `S5_lora` | 0.9798 [0.9654, 0.9883] | original (51,522) | +0.87 pt [+0.50, +1.56] | 0.0001 | 0.9444 | +0.77 pt |
+| S5b weight space | `S5b_wise_0.25` | 0.9782 [0.9638, 0.9872] | original (41,522) | +0.72 pt [+0.45, +1.22] | 0.0001 | 0.9388 | +0.21 pt |
+| S5b weight space | `S5b_wise_0.5` | 0.9789 [0.9644, 0.9879] | original (41,522) | +0.80 pt [+0.48, +1.33] | 0.0001 | 0.9416 | +0.49 pt |
+| S5b weight space | `S5b_wise_0.75` | 0.9798 [0.9655, 0.9885] | original (41,522) | +0.88 pt [+0.52, +1.49] | 0.0001 | 0.9427 | +0.60 pt |
 
 ## Step decisions (pre-registered rule)
 - **S1_representation**: best candidate `S1_f_best_plus_centre_view`. OOF test passed: False; valid gate passed: False → **rejected**. Incumbent after: `S0_hibou_l_cls_linear`.
@@ -43,12 +43,25 @@
 - **The MLP is clearly worse** (Δ OOF -1.85 pt, Δ valid -3.13 pt). Untested hypothesis, consistent with the C result: inside CV there is no validation split for early stopping, so it trains the full 12,500 eva steps (≈15 epochs) and overfits the training slides. The MLP was not tuned (fixed width 512, dropout 0.1).
 
 ## S3–S5 learnings and the H4 control
-- **S3 D4 TTA does not help.** Same heads with and without 8-view averaging: Δ OOF (train-64k) +0.04 pt [-0.02, +0.13], p 0.25. Δ valid vs the original -0.24 pt [-0.53, -0.08]. This matches the pre-registered prediction (≤ 0.3 pt) and Hibou-L's rotation/flip pretraining augmentation ([arXiv:2412.11938](https://arxiv.org/abs/2412.11938)).
+- **S3 D4 TTA does not help.** Same heads with and without 8-view averaging: Δ OOF (train-64k) +0.04 pt [-0.02, +0.13], p 0.25; Δ valid -0.09 pt [-0.20, -0.00], a slight loss. This matches the pre-registered prediction (≤ 0.3 pt) and Hibou-L's rotation/flip pretraining augmentation ([Hibou §3.1.1](https://arxiv.org/abs/2406.05074)); Hibou-L was also the most rotation-invariant FM by cosine distance in [arXiv:2412.11938](https://arxiv.org/abs/2412.11938).
+- **Seed-count confounder in Δ valid vs the original.** The original's validation BA is a 5-seed average, and its per-seed SD is 0.15 pt on validation (vs. 0.04 pt OOF). The same recipe with seed 0 only (`S3_no_tta_train64k`) scores -0.15 pt [-0.35, -0.02] on validation. One-seed linear-head arms (S1 f, S3, S3b, the S2 MLP) are compared with a 5-seed average, so their Δ valid vs the original includes a seed term of this size; logistic regression is deterministic. No adoption decision changes: S1 f failed the OOF test, S3 and S5b were decided against same-seed references, and S3b and S5 passed the gate despite the offset.
 - **S3b label cleaning removed 2.0–2.6% of training patches per fold** (2.2% in the full refit). That is about ten times SelfClean's 0.2% PCam label-error estimate ([arXiv:2305.17048](https://arxiv.org/abs/2305.17048)); if that estimate holds, most removed patches are hard but correctly labelled. Δ OOF +0.27 pt [+0.10, +0.50] exceeds the pre-registered |Δ| ≤ 0.2 pt (prediction falsified). Δ valid +0.01 pt [-0.76, +0.40] is indistinguishable from zero; the gate (point estimate ≥ 0, AUROC not lower) passed narrowly.
 - **S5 LoRA is the first change that clearly improves validation:** Δ valid +0.77 pt [+0.27, +1.41], p 0.0081; Δ fold-0 +0.87 pt [+0.50, +1.56] vs the original. Sweep winner lr 0.0001, rank 16; 26 img/s, so all 24 blocks were kept (fallback threshold 20 img/s). Caveat: the EMA checkpoint (best of 7) was chosen on a 10k subsample of fold 0, and the fold-0 comparison includes those patches; the validation comparison has no such overlap.
 - **S5b WiSE scaling does not help:** pulling the LoRA weights back toward the LP-FT start lowers validation BA, more so the further it goes (Δ valid vs LoRA, α 0.25: -0.56 pt [-1.19, -0.22]; α 0.5: -0.28 pt [-0.74, -0.07]; α 0.75: -0.17 pt [-0.45, -0.04]). On the fold-0 selection set the best α (0.75) changes BA by +0.03 pt [-0.07, +0.08]. WiSE-FT's gains were reported mainly under distribution shift ([arXiv:2109.01903](https://arxiv.org/abs/2109.01903)); in-distribution validation cannot test that, and the WILDS check is still sealed.
 - **H4 control: a frozen Hibou-L head trained on LoRA's training patches under the same D4 + HED augmentation.** It differs from the original by +0.20 pt [-0.10, +0.84] on fold 0 and -0.23 pt [-1.01, +0.35] on valid. LoRA beats it by +0.67 pt [+0.48, +0.97] on fold 0 (p 0.0001) and +0.99 pt [+0.58, +1.51] on valid (p 0.0001). This is descriptive: the pre-registered H4 test uses the sealed test split.
 
+## Code-review findings on S5 and H4 (fixed in code; these results predate the fixes)
+- Cleaning mask: S5 and H4 trained on folds 1–4 minus 7,131 patches flagged by S3b's full-train OOF predictions, whose heads also saw fold-0 labels. S3b's nested fold-0 mask drops 5,412; 2,687 of 210,622 patches differ. This is a small label leak into the fold-0 comparisons (S5 vs. the original or S3b, S5b selection); the validation comparisons use no validation label and are unaffected.
+- Stain augmentation strength: σ = 0.05 in scikit-image stain units shifts each stain by up to 0.69 optical density; random draws change pixels by 36/255 on average, and the largest shift darkens mean RGB from 162 to 65. This is stronger than the name "HED-light" suggests (Tellez et al. do not state units). H4 is matched to LoRA as pre-registered, but its frozen head sees only recoloured patches and is scored on clean ones, which may widen the LoRA − H4 gap.
+- LoRA sweep: the EMA (decay 0.999, no warm-up) still held most of the starting weights at the short rungs; 3 of 6 first-rung configs scored identically, and the final pick won by 0.011 pt (about one of the 10k checkpoint patches), so the lr/rank choice is close to arbitrary.
+- Also fixed: the LoRA adapter initialisation is now seeded, the LoRA head runs in fp32 (logits were bf16, which coarsens NLL and ECE but not BA), predictions are order-safe for unsorted indices, and test images, labels and meta are guarded by the seal.
+
 ## Notes
 - **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.
 - **Negative results** are kept and reported like positive ones.
+
+## Engineering learnings
+- **Label-cleaning mask after LoRA was adopted.** S5b first crashed with an `IndexError`: once `S5_lora` became the Hibou-L incumbent, the cleaning mask was looked up through its predictions, which cover fold 0 only. S3b now records the arm whose full-train OOF predictions define the mask (`clean_source`). The restored mask reproduces S5's training set exactly (same patch count and steps per epoch), so S5 itself was unaffected; the H4 control would have hit the same bug.
+- **Stale code in the release watcher.** The watcher called `release()` in-process, so it kept using the report code imported when it started and overwrote later report edits (the S2 learnings, the seed-count note). Each release now runs in a fresh `main.py release` process.
+- **LoRA throughput.** All 24 blocks with rank 16, gradient checkpointing and micro-batch 64 ran at about 26 img/s, below the planned 40–60 but above the 20 img/s fallback threshold, so one epoch of folds 1–4 took about 2 h.
+- **Training images in RAM.** Random HDF5 reads from disk (about 1.4 s per 64-patch batch) starved the GPU; loading train into memory once (about 100 s) fixed it.

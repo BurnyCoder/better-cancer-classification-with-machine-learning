@@ -25,7 +25,7 @@ from pcam_hc.finetune import (
     ConvNeXtClassifier, LoraClassifier, predict_with_state, soup_state, train_lora, wise_state,
 )
 from pcam_hc.ladder import read_ladder, write_ladder
-from pcam_hc.stage_b import _fit_cfg, _record_decision, _seeds_for, base_arm, features, incumbent
+from pcam_hc.stage_b import _fit_cfg, _record_decision, _seeds_for, base_arm, features, incumbent, nested_keep
 from pcam_hc.stats import holm, paired_comparison
 
 log = logging.getLogger(__name__)
@@ -35,17 +35,30 @@ WISE_ALPHAS = (0.25, 0.5, 0.75)
 
 
 # ----------------------------------------------------------------------------- shared pieces
+def clean_keep_fold0(ctx, cfg: dict, rep, views) -> np.ndarray:
+    """LoRA training patches kept by S3b's cleaning: its nested mask for outer fold 0 (inner CV on folds
+    1-4 only), so no fold-0 label decides which patches LoRA trains on. Cached on the data disk."""
+    path = PATHS.data / "masks" / f"keep_fold0_{cfg.get('clean_source', 'S3b')}_{cfg['clean_threshold']}.npy"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(path, nested_keep(ctx, features("train", rep, views), cfg, 0, cfg["clean_threshold"]))
+    return np.load(path)
+
+
 def splits(ctx, clean: bool = True) -> dict:
-    """Index sets: LoRA training patches (folds 1-4, minus labels flagged by S3b if it was adopted and
-    `clean`), fold 0, its 10k checkpointing subsample, the fold-0 selection set (fold 0 minus
-    checkpointing patches), and the sweep set (train-64k within the LoRA training patches)."""
+    """Index sets: LoRA training patches (folds 1-4, minus labels flagged by S3b's nested fold-0 mask if
+    S3b was adopted and `clean`), fold 0, its 10k checkpointing subsample, the fold-0 selection set (fold 0
+    minus checkpointing patches), and the sweep set (train-64k within the LoRA training patches).
+
+    The S5 run of 2026-11-01 (and its H4 control) trained on an earlier mask built from S3b's full-train
+    OOF predictions, whose fold 1-4 entries come from heads that saw fold-0 labels; `mask_audit` records
+    the difference (results/lora_mask_audit.json)."""
     train = np.flatnonzero(ctx.folds != 0)
-    name, cfg = None, {}
+    cfg = {}
     if clean and read_ladder().get("incumbent"):
-        name, _, _, cfg = incumbent(hibou_only=True)
-    if "clean_threshold" in cfg:  # the mask's source arm, not S5_lora's own fold-0-only predictions
-        p = expit(ex.load_preds(cfg.get("clean_source", base_arm(name)))["oof"].astype(np.float64)).mean(0)
-        train = train[np.abs(ctx.y_train[train] - p[train]) <= cfg["clean_threshold"]]
+        _, rep, views, cfg = incumbent(hibou_only=True)
+    if "clean_threshold" in cfg:
+        train = clean_keep_fold0(ctx, cfg, rep, views)
     fold0 = np.flatnonzero(ctx.folds == 0)
     ckpt, _ = train_test_split(fold0, train_size=10_000, stratify=ctx.y_train[fold0], random_state=0)
     ckpt = np.sort(ckpt)
@@ -63,10 +76,27 @@ def lp_head(ctx, idx) -> dict:
             "mu": None if head.mu is None else head.mu.cpu(), "sd": None if head.sd is None else head.sd.cpu()}
 
 
-def new_model(head_state, rank: int) -> LoraClassifier:
+def new_model(head_state, rank: int, seed: int = 0) -> LoraClassifier:
+    """Hibou-L + LoRA; `seed` fixes the adapter initialisation (peft draws lora_A from the global RNG)."""
     _, rep, views, _ = incumbent(hibou_only=True)
     spec = REGISTRY["hibou_l"]
+    torch.manual_seed(seed)
     return LoraClassifier(load_model(spec).to(torch.bfloat16), spec, head_state, rep, views, rank=rank)
+
+
+def mask_audit(ctx) -> dict:
+    """Compare the cleaning mask the 2026-11-01 S5 run trained on (S3b full-train OOF, fold-0 labels inside)
+    with the nested fold-0 mask that `splits` now uses; written to results/lora_mask_audit.json."""
+    _, rep, views, cfg = incumbent(hibou_only=True)
+    tr, y, thr = np.flatnonzero(ctx.folds != 0), ctx.y_train, cfg["clean_threshold"]
+    p = expit(ex.load_preds(cfg.get("clean_source", "S3b_oof_label_cleaning"))["oof"].astype(np.float64)).mean(0)
+    used = set(tr[np.abs(y[tr] - p[tr]) > thr])
+    nested = set(tr) - set(clean_keep_fold0(ctx, cfg, rep, views))
+    out = {"lora_train_candidates": int(len(tr)), "dropped_by_used_mask": len(used), "dropped_by_nested_mask": len(nested),
+           "dropped_by_both": len(used & nested), "jaccard_dropped": len(used & nested) / max(1, len(used | nested)),
+           "patches_trained_differently": len(used ^ nested)}
+    (PATHS.results / "lora_mask_audit.json").write_text(json.dumps(out, indent=2))
+    return out
 
 
 def predict_states(model, states: list, split: str, idx) -> np.ndarray:
@@ -107,7 +137,7 @@ def final_runs(ctx, sp: dict, head_state: dict, lr: float, rank: int, seeds=SEED
     for seed in seeds:
         path = LORA_DIR / f"seed{seed}.pt"
         if not path.exists():
-            run = train_lora(new_model(head_state, rank), images, sp["train"], ctx.y_train, sp["ckpt"],
+            run = train_lora(new_model(head_state, rank, seed=seed), images, sp["train"], ctx.y_train, sp["ckpt"],
                              ctx.y_train[sp["ckpt"]], lr=lr, epochs=1.0, seed=seed, eval_every=500)
             torch.save({k: run[k] for k in ("ba", "step", "state", "history", "img_per_s")}, path)
             torch.cuda.empty_cache()

@@ -67,14 +67,25 @@ def download_pcam() -> None:
                     shutil.copyfileobj(src, dst, length=1 << 24)
 
 
-def load_labels(split: str) -> np.ndarray:
+def _guard(split: str, audit: bool) -> None:
+    """Test images and labels stay sealed until the ladder is frozen (seal.py). The only exception is the
+    pre-registered data audit (`verify_splits`: hashes and label/meta agreement), which passes audit=True."""
+    if split == "test" and not audit:
+        from pcam_hc.seal import assert_test_unsealed, frozen_arms
+
+        assert_test_unsealed(frozen_arms())
+
+
+def load_labels(split: str, audit: bool = False) -> np.ndarray:
     """Binary labels (int8) of a split; stored as y[N, 1, 1, 1] in the HDF5 file."""
+    _guard(split, audit)
     with h5py.File(h5_file(split, "y"), "r") as f:
         return f["y"][:].reshape(-1).astype(np.int8)
 
 
-def load_meta(split: str) -> pd.DataFrame:
-    """Meta CSV: coord_y, coord_x, tumor_patch, center_tumor_patch, wsi (one row per patch)."""
+def load_meta(split: str, audit: bool = False) -> pd.DataFrame:
+    """Meta CSV: coord_y, coord_x, tumor_patch, center_tumor_patch, wsi (one row per patch). Holds the labels, so sealed for test."""
+    _guard(split, audit)
     return pd.read_csv(raw_file(split, "meta.csv"), index_col=0)
 
 
@@ -82,7 +93,8 @@ class PCamImages:
     """Random access to a split's images. Uses a numpy memmap when the HDF5 dataset is stored
     contiguously and uncompressed (fast fancy indexing), otherwise falls back to h5py."""
 
-    def __init__(self, split: str, in_memory: bool = False):
+    def __init__(self, split: str, in_memory: bool = False, audit: bool = False):
+        _guard(split, audit)
         self.file = h5py.File(h5_file(split, "x"), "r")
         dset = self.file["x"]
         self.shape = dset.shape
@@ -187,21 +199,21 @@ def color_histograms(split: str, bins: int = 32, batch: int = 8192) -> np.ndarra
 def verify_splits(check_duplicates: bool = True, batch: int = 8192) -> dict:
     """Slide disjointness, label/meta consistency, and exact-duplicate images across splits."""
     report = {}
-    slides = {s: set(load_meta(s)["wsi"]) for s in SPLITS}
+    slides = {s: set(load_meta(s, audit=True)["wsi"]) for s in SPLITS}  # pre-registered audit: may read test
     for i, a in enumerate(SPLITS):
         for b in SPLITS[i + 1 :]:
             report[f"shared_slides_{a}_{b}"] = len(slides[a] & slides[b])
     for s in SPLITS:
-        meta, y = load_meta(s), load_labels(s)
+        meta, y = load_meta(s, audit=True), load_labels(s, audit=True)
         report[f"{s}_n"] = int(len(y))
         report[f"{s}_slides"] = len(slides[s])
         report[f"{s}_tumour_slides"] = int(meta.groupby("wsi")["center_tumor_patch"].any().sum())
         report[f"{s}_positive_rate"] = float(y.mean())
         report[f"{s}_label_matches_meta"] = bool((meta["center_tumor_patch"].to_numpy() == y.astype(bool)).all())
     if check_duplicates:
-        hashes, metas = {}, {s: load_meta(s) for s in SPLITS}
+        hashes, metas = {}, {s: load_meta(s, audit=True) for s in SPLITS}
         for s in SPLITS:
-            imgs, hs = PCamImages(s), []
+            imgs, hs = PCamImages(s, audit=True), []
             for start in range(0, len(imgs), batch):
                 block = imgs.read(np.arange(start, min(len(imgs), start + batch)))
                 hs += [hashlib.blake2b(im.tobytes(), digest_size=16).digest() for im in block]

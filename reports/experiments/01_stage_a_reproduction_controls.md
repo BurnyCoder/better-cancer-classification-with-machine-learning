@@ -16,7 +16,7 @@
 - **Exact pixel duplicates within splits:** train 42,119, valid 4,660, test 3,385. The slide-grouped folds keep identical patches of a slide in the same fold, so they cannot leak across CV folds.
 - **Exact duplicates across splits:** train–test 33, train–valid 0, valid–test 0.
   - The train–test duplicates all come from slides camelyon16_test_049 / camelyon16_train_tumor_036, at identical slide coordinates.
-  - CAMELYON16 notes list test_049 as a duplicate slide removed from the official release, but PCam contains it.
+  - Secondary sources (the eva documentation) report a duplicate CAMELYON16 test slide that was removed from the official release; PCam still contains test_049.
   - Decision while test was still sealed: report every test metric also without that slide (deviation log).
 
 ## Reproducing Hibou-L (H2 gate)
@@ -53,7 +53,7 @@ Every later step is compared with this arm: Hibou-L CLS with the eva linear head
 - **Hospital check** (L1 distance of mean colour histograms):
   - The assumed RUMC/UMCU split of PCam slides is far more separated (1.30) than a random slide split (0.14), which supports the slide-numbering assumption.
   - WILDS centre 2 (the official WILDS *test* hospital) is closest to UMCU (0.69 vs. 1.68). It is therefore a Camelyon16 source hospital, not out-of-distribution for PCam-trained models.
-  - The primary OOD pool is centres 0, 1, 4 (CWZ, RST, LPON; arXiv:2404.11161).
+  - The pre-registered primary OOD pool is centres 0, 1, 4, reported as CWZ, RST, LPON (arXiv:2404.11161 v1). This mapping is uncertain: centres 0, 3 and 4 share one scanner ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373), §4.1), which with the per-hospital scanners in [Litjens et al. 2018](https://academic.oup.com/gigascience/article/7/6/giy065/5026175) places RUMC, a Camelyon16 hospital, among centres 0, 3, 4. The colour check cannot separate them. The pool is re-examined and logged before WILDS is unsealed.
 
 ## Learnings
 - **HF login token.** Overriding `HF_HOME` to move the model cache hid the stored Hugging Face login token, and licence-accepted models returned 401. Use `HF_HUB_CACHE` instead.

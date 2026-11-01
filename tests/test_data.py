@@ -83,7 +83,7 @@ def test_real_splits_are_slide_disjoint():
 
     if not (config.PATHS.data / "raw" / config.PCAM_FILES_TEMPLATE.format(split="test", kind="meta.csv")).exists():
         pytest.skip("PCam not downloaded")
-    slides = {s: set(load_meta(s)["wsi"]) for s in config.SPLITS}
+    slides = {s: set(load_meta(s, audit=True)["wsi"]) for s in config.SPLITS}  # the pre-registered audit may read test
     assert not slides["train"] & slides["valid"]
     assert not slides["train"] & slides["test"]
     assert not slides["valid"] & slides["test"]

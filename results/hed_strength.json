@@ -1,0 +1,8 @@
+{
+  "sigma": 0.05,
+  "n_patches": 512,
+  "beta_max_optical_density": 0.6907755278982137,
+  "mean_abs_pixel_change_random": 36.40805435180664,
+  "mean_rgb_clean": 161.96177673339844,
+  "mean_rgb_beta_plus_sigma": 64.69154357910156
+}

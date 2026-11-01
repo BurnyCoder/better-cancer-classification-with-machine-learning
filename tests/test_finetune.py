@@ -105,3 +105,5 @@ def test_training_loop_runs_and_tracks_the_best_ema_checkpoint():
     assert run["ba"] >= 0 and run["history"] and set(run["state"]) == {k for k, p in model.named_parameters() if p.requires_grad}
     logits = predict_with_state(model, run["state"], imgs, np.arange(48, 64), device="cpu")
     assert logits.shape == (16,) and np.isfinite(logits).all()
+    unsorted = np.array([60, 50, 63, 48])  # logits must come back in the caller's order
+    assert np.allclose(predict_with_state(model, run["state"], imgs, unsorted, device="cpu"), logits[unsorted - 48], atol=1e-4)

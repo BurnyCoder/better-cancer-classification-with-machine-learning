@@ -276,13 +276,15 @@ def step_s3b(ctx, threshold: float = 0.9) -> dict:
            "recipe": recipe(rep, views)}
     ex.save_arm(name, rec, {"oof": oof, "valid": val})
     ladder = read_ladder()
-    ladder["configs"][name] = {**ladder["configs"][inc_full], "clean_threshold": threshold}
+    # clean_source: the arm whose full-train OOF predictions define the mask; configs derived later (S5) inherit it
+    ladder["configs"][name] = {**ladder["configs"][inc_full], "clean_threshold": threshold, "clean_source": name}
     write_ladder(ladder)
     decision = decide_step(ctx, "S3b_label_cleaning", inc_full, [name])
     if inc != inc_full:  # a TTA incumbent stays the incumbent; cleaning (if adopted) is recorded on it
         ladder = read_ladder()
         if decision["adopted"]:
             ladder["configs"][inc]["clean_threshold"] = threshold
+            ladder["configs"][inc]["clean_source"] = name
             ladder["configs"][inc]["base_arm"] = name
         ladder["incumbent"] = inc
         ladder["history"][-1]["incumbent_after"] = inc

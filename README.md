@@ -30,8 +30,15 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 
 **Release status:**
 - **Release 1:** the reproduced model, its controls and the no-training baselines. Published with the [paper (PDF)](reports/paper/paper.pdf), [reports](reports/experiments_summary.md), the [interactive explorer](https://burnycoder.github.io/better-cancer-classification-with-machine-learning/) and the [Hugging Face collection](https://huggingface.co/collections/BurnyCoder/pcam-hill-climbing-of-hibou-l-6ae69845aceb3bbab4777782).
-- **Next:** the improvement ladder, LoRA and trained baselines, then the one-shot test and out-of-hospital evaluation.
+- **Release order** (each release is pushed with an updated paper, reports, README, site and Hugging Face):
+  1. ✅ Reproduced Hibou-L with cheap controls and no-training baselines.
+  2. ⏳ *Training now:* the **Hibou-L-only improvement** ladder (S1 representation, S2 head, S3 rotation/flip averaging, S3b label cleaning, S5 LoRA, S5b weight averaging), compared with the original Hibou-L, the cheap controls and the published baselines.
+  3. Control models: DINOv2-L with natural-image weights, randomly initialised ViT-L, and the augmentation-matched frozen control (H4).
+  4. Baseline models: the 9 other foundation models (the B\* scan) and an end-to-end ConvNeXt-T.
+  5. Ablations that need no training.
+  6. More models: S4 fusion with the other foundation models, the S6 final combination, then the one-shot sealed test and out-of-hospital (WILDS) evaluation.
 - **Postponed to a later day:** ablations that need training new models, and the seed/hyperparameter sensitivity study.
+- **Test split:** stays sealed until the whole ladder (through S6) is frozen.
 - **Plan of record:** every hypothesis and decision rule is fixed in the [pre-registration](reports/preregistration.md), which was pushed before any data was loaded.
 
 ## Results

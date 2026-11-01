@@ -25,6 +25,8 @@ from torch import nn
 from pcam_hc.data import PCamImages, d4_view, preprocess
 
 log = logging.getLogger(__name__)
+# LoRA targets: transformers 5 names the attention projections q_proj/k_proj/v_proj/o_proj.
+LORA_TARGETS = r".*attention\.(q_proj|k_proj|v_proj|o_proj)"
 
 # Ruifrok & Johnston stain vectors as used by scikit-image (skimage.color.rgb_from_hed / hed_from_rgb):
 # https://github.com/scikit-image/scikit-image/blob/main/skimage/color/colorconv.py
@@ -107,9 +109,7 @@ class LoraClassifier(nn.Module):
                 )
 
                 layer.drop_path = Dinov2WithRegistersDropPath(drop_path) if drop_path > 0 else nn.Identity()
-        # transformers 5 names the attention projections q_proj/k_proj/v_proj/o_proj.
-        cfg = LoraConfig(r=rank, lora_alpha=rank, lora_dropout=0.0, bias="none",
-                         target_modules=r".*attention\.(q_proj|k_proj|v_proj|o_proj)")
+        cfg = LoraConfig(r=rank, lora_alpha=rank, lora_dropout=0.0, bias="none", target_modules=LORA_TARGETS)
         self.backbone = get_peft_model(backbone, cfg)
         self.backbone.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
         self.spec, self.rep, self.views = spec, rep, tuple(views)

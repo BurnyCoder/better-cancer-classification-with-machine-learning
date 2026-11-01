@@ -266,6 +266,21 @@ def _pt(cm: dict, part: str) -> str:
     return f"{100 * x['delta_ba']:+.2f} pt [{100 * x['ci_ba'][0]:+.2f}, {100 * x['ci_ba'][1]:+.2f}]"
 
 
+REFERENCE_ARMS = {"S3_no_tta_train64k"}  # S3's identity-view reference (the original recipe, 1 seed), not a change
+
+
+def frozen_changes(rows: list[dict]) -> list[dict]:
+    """Ladder rows that are frozen-feature changes (not LoRA, not the H4 control, not a reference arm)."""
+    return [r for r in rows if not r["arm"].startswith(("S5", "H4")) and r["arm"] not in REFERENCE_ARMS]
+
+
+def seed_offset() -> dict | None:
+    """The single-seed effect on validation: the original recipe with seed 0 only (S3's identity-view arm)
+    vs. the 5-seed original. One-seed linear-head arms carry this offset in their Δ valid vs. the original."""
+    c, s0 = _j("comparisons/S3_no_tta_train64k_vs_baseline.json"), _arm("S0_hibou_l_cls_linear")
+    return {"cmp": c, "valid_seed_sd": s0["valid"]["seed_sd"]["ba"], "oof_seed_sd": s0["oof"]["seed_sd"]["ba"]} if c and s0 else None
+
+
 def ladder_findings() -> list[str]:
     """Headline findings of releases 2+, one sentence each, every number from results/. Shared by the
     paper's abstract and conclusion and the README highlights."""
@@ -275,7 +290,7 @@ def ladder_findings() -> list[str]:
     steps = [json.loads(p.read_text()) for p in sorted((PATHS.results / "steps").glob("*.json"), key=lambda p: p.stat().st_mtime)]
     adopted = [s["step"] for s in steps if s["adopted"]]
     out.append(f"Of {len(steps)} decided ladder steps, {len(adopted)} were adopted ({', '.join(f'`{s}`' for s in adopted) or 'none'}).")
-    frozen = [r for r in rows if not r["arm"].startswith(("S5", "H4"))]
+    frozen = frozen_changes(rows)
     if frozen:
         top = max(frozen, key=lambda r: r["cmp"]["valid"]["delta_ba"])
         sig = any(r["cmp"]["valid"]["ci_ba"][0] > 0 for r in frozen)
@@ -301,11 +316,20 @@ def _later_learnings() -> list[str]:
         return json.loads(p.read_text()) if p.exists() else None
 
     d, lines = _pt, []
-    if c := cmp("S3_d4_tta"):
+    if (c := cmp("S3_d4_tta")) and (s3 := _j("steps/S3_d4_tta.json")):
+        same = s3["comparisons"]["S3_d4_tta"]  # TTA vs identity view, scored by the very same heads
         lines.append(f"- **S3 D4 TTA does not help.** Same heads with and without 8-view averaging: Δ OOF (train-64k) "
-                     f"{d(c, 'oof')}, p {c['oof']['p_signflip']:.2g}. Δ valid vs the original {d(c, 'valid')}. "
+                     f"{d(c, 'oof')}, p {c['oof']['p_signflip']:.2g}; Δ valid {d(same, 'valid')}, a slight loss. "
                      "This matches the pre-registered prediction (≤ 0.3 pt) and Hibou-L's rotation/flip pretraining "
                      "augmentation ([arXiv:2412.11938](https://arxiv.org/abs/2412.11938)).")
+    if so := seed_offset():
+        lines.append(f"- **Seed-count confounder in Δ valid vs the original.** The original's validation BA is a 5-seed average, "
+                     f"and its per-seed SD is {100 * so['valid_seed_sd']:.2f} pt on validation (vs. {100 * so['oof_seed_sd']:.2f} pt "
+                     f"OOF). The same recipe with seed 0 only (`S3_no_tta_train64k`) scores {d(so['cmp'], 'valid')} on "
+                     "validation. One-seed linear-head arms (S1 f, S3, S3b, the S2 MLP) are compared with a 5-seed average, so "
+                     "their Δ valid vs the original includes a seed term of this size; logistic regression is deterministic. "
+                     "No adoption decision changes: S1 f failed the OOF test, "
+                     "S3 and S5b were decided against same-seed references, and S3b and S5 passed the gate despite the offset.")
     if (c := cmp("S3b_oof_label_cleaning")) and (a := _arm("S3b_oof_label_cleaning")):
         fr = list(a["removed_fraction_per_fold"].values())
         lines.append(f"- **S3b label cleaning removed {100 * min(fr):.1f}–{100 * max(fr):.1f}% of training patches per fold** "
@@ -371,7 +395,19 @@ def render_ladder() -> str | None:
     lines += _s2_learnings(steps) + _later_learnings()
     lines += ["", "## Notes",
               "- **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.",
-              "- **Negative results** are kept and reported like positive ones.", ""]
+              "- **Negative results** are kept and reported like positive ones.", "",
+              "## Engineering learnings",
+              "- **Label-cleaning mask after LoRA was adopted.** S5b first crashed with an `IndexError`: once `S5_lora` became the "
+              "Hibou-L incumbent, the cleaning mask was looked up through its predictions, which cover fold 0 only. S3b now records the "
+              "arm whose full-train OOF predictions define the mask (`clean_source`). The restored mask reproduces S5's training set "
+              "exactly (same patch count and steps per epoch), so S5 itself was unaffected; the H4 control would have hit the same bug.",
+              "- **Stale code in the release watcher.** The watcher called `release()` in-process, so it kept using the report code "
+              "imported when it started and overwrote later report edits (the S2 learnings, the seed-count note). Each release now runs "
+              "in a fresh `main.py release` process.",
+              "- **LoRA throughput.** All 24 blocks with rank 16, gradient checkpointing and micro-batch 64 ran at about 26 img/s, below "
+              "the planned 40–60 but above the 20 img/s fallback threshold, so one epoch of folds 1–4 took about 2 h.",
+              "- **Training images in RAM.** Random HDF5 reads from disk (about 1.4 s per 64-patch batch) starved the GPU; loading train "
+              "into memory once (about 100 s) fixed it.", ""]
     return "\n".join(lines)
 
 

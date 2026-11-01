@@ -77,7 +77,7 @@ def build_paper() -> str | None:
     ctrl = {k: _j(f"arms/{k}.json") for k in ("control_shuffled_labels", "control_color_histogram", "control_majority")}
     pub, wilds, pool = _j("published_baselines.json"), _j("wilds_data.json"), _j("model_pool.json")
     steps = sorted((PATHS.results / "steps").glob("*.json")) if (PATHS.results / "steps").exists() else []
-    from pcam_hc.report_experiments import CONTROL_MODELS, _pt, ladder_findings, ladder_rows
+    from pcam_hc.report_experiments import CONTROL_MODELS, _pt, frozen_changes, ladder_findings, ladder_rows, seed_offset
 
     lrows = ladder_rows()
     decided = [json.loads(p.read_text()) for p in sorted(steps, key=lambda p: p.stat().st_mtime)]
@@ -223,6 +223,41 @@ def build_paper() -> str | None:
               f"LoRA − H4: {pt(h4c, 'oof')} on fold 0 and {pt(h4c, 'valid')} on validation (paired slide bootstrap). "
               "These differences are descriptive; the pre-registered H4 test is scored on the sealed test split.")
             a("")
+        if (PROJECT_ROOT / "reports" / "figures" / "lora_training.png").exists():
+            a('#figure(image("../figures/lora_training.png", width: 100%), caption: [S5 LoRA final run. Left: single-minibatch BCE loss every 50 steps '
+              "(log scale) and its running mean. Right: BA of the EMA weights on the 10k fold-0 checkpoint subsample (zoomed y-axis); the best checkpoint is kept.])")
+            a("")
+        ex_ = _j("examples.json")
+        if ex_:
+            sizes = "; ".join(f"{k}: {v:,}" for k, v in ex_["groups"].items())
+            a('#figure(image("../figures/examples.png", width: 88%), caption: [Example outputs on validation patches with each model\'s tumour probability: '
+              f"the original probe (baseline), LoRA (new method), and two controls. Rows are outcome groups of original vs. LoRA ({sizes} patches); "
+              f"{ex_['rule']}, so the examples are not hand-picked.])")
+            a("")
+    a("= Related work")
+    a(f"*Frozen-probe benchmarks.* Pathology FMs are ranked on PCam with frozen backbones and linear probes {c('eva', 'midnight')}; "
+      f"Hibou-L {c('hibou')} leads the eva leaderboard, ahead of models trained on far larger or different cohorts {c('gigapath', 'virchow2')}. "
+      f"*Adapting FMs.* Benchmarks of adaptation strategies report that parameter-efficient fine-tuning can beat linear probing on pathology tasks {c('lee2024', 'peft')}; "
+      f"LP-FT {c('lpft')} and weight-space interpolation {c('wise', 'soups')} were proposed to keep pretrained features robust under shift. "
+      f"*Data-centric fixes.* Out-of-fold label cleaning won PANDA {c('panda')}, SelfClean estimates PCam's label-error rate {c('selfclean')}, "
+      f"rotation/flip TTA helped CNNs on Kaggle's PCam variant {c('hcd')}, but pathology FMs are already close to rotation-invariant {c('rotinv')}. "
+      f"*Representations.* Multi-layer and region-pooled probes improve weaker frozen models {c('multilayer', 'dinov2')}. "
+      "This study tests these ideas on the strongest frozen model under one pre-registered, slide-clustered protocol.")
+    a("")
+    a("= Discussion")
+    worse = [r["arm"] for r in frozen_changes(lrows) if r["cmp"]["valid"]["ci_ba"][1] < 0]
+    a("*Why frozen-feature tricks did not transfer.* Hibou-L starts near the frozen-probe ceiling, its pretraining already included rotations and flips, "
+      "and the reported multi-layer gains were averages over weaker models. No frozen-feature change improved validation BA beyond its confidence interval"
+      + (f", and {len(worse)} made it significantly worse ({', '.join(f'`{w}`' for w in worse)})" if worse else "") + ". "
+      "Label cleaning was adopted on cross-validation, but it removed about ten times more patches than SelfClean's label-error estimate; "
+      "if that estimate holds, it also drops hard, correctly labelled patches.")
+    a("*Why LoRA helped.* The H4 control targets the augmentation: a frozen head trained on the same augmented images is no better than the original, "
+      "while LoRA is clearly better. This suggests that the gain comes from adapting the backbone's attention layers rather than from the augmentation, "
+      "although the two arms also differ in optimiser and schedule. Shrinking the LoRA update (WiSE) lowered validation BA, more so the further it was shrunk; "
+      "WiSE-FT targets robustness under distribution shift, which only the sealed WILDS evaluation can test.")
+    a("*Strength of the evidence.* All results are on cross-validation and the 54-slide validation split, with one seed per arm and one LoRA run. "
+      "They are hedged findings until the sealed test split and the out-of-hospital WILDS pool are scored once.")
+    a("")
     a("= Planned and postponed analyses")
     a(f"The pre-registered ladder follows. Steps decided so far: {len(steps)}.")
     a(f"- S1 representation: last-layer CLS, CLS+mean, DINOv2 last-4-layer {c('dinov2')}, spread layers {c('multilayer')}, centre tokens and a centre-crop view.")
@@ -247,6 +282,10 @@ def build_paper() -> str | None:
     a("- The WILDS centre-to-hospital mapping rests on one paper plus a colour-signature check, and the WILDS data come from a community mirror.")
     a("- Results so far are from cross-validation and validation only.")
     a("- From S1 f on, every arm uses one seed, and LoRA is a single run: seed variance of the ladder arms is unmeasured (sensitivity study postponed).")
+    if so := seed_offset():
+        a(f"- Seed-count confounder: the original's validation BA averages 5 seeds (per-seed SD {100 * so['valid_seed_sd']:.2f} pt), and the same recipe "
+          f"with seed 0 alone scores {pt(so['cmp'], 'valid')} on validation. One-seed linear-head arms are compared with that 5-seed average, so their "
+          "Δ valid vs. the original includes a seed term of this size; no adoption decision depends on it.")
     lr = _j("arms/S2_logreg.json")
     if lr and set(lr["chosen_C_per_fold"]) == {min(map(float, lr["cv_ba_per_C"]))}:
         a("- S2's logistic regression chose the smallest C on the pre-registered grid in every fold, so the optimum may lie outside the grid.")
@@ -256,12 +295,12 @@ def build_paper() -> str | None:
       "Two data issues that would have contaminated evaluation (a duplicated test slide and an in-distribution WILDS test hospital) were caught and handled before any test data was used."
       + findings + " Whether the gains hold on the test split and across hospitals is the next, sealed, question.")
     a("")
-    a("= AI statement")
-    a("This codebase and paper were written by Claude Code (Anthropic), executing a specification provided by a human author, Libor Burian. Human cleanup and rewriting are in progress.")
-    a("")
     a("= References")
     for k, text, url in REFS:
         a(f"[{CITE[k]}] {text} #link(\"{url}\")[{url}] \\")
+    a("")
+    a("= AI statement")
+    a("This codebase and paper were written by Claude Code (Anthropic), executing a specification provided by a human author, Libor Burian. Human cleanup and rewriting are in progress.")
     return "\n".join(t)
 
 

@@ -18,9 +18,33 @@
   "test_positive_rate": 0.499786376953125,
   "test_label_matches_meta": true,
   "train_within_split_duplicates": 42119,
+  "train_duplicate_groups": 15235,
+  "train_duplicate_groups_label_conflict": 0,
+  "train_duplicate_groups_multi_slide": 2,
   "valid_within_split_duplicates": 4660,
+  "valid_duplicate_groups": 2181,
+  "valid_duplicate_groups_label_conflict": 0,
+  "valid_duplicate_groups_multi_slide": 0,
   "test_within_split_duplicates": 3385,
+  "test_duplicate_groups": 1792,
+  "test_duplicate_groups_label_conflict": 0,
+  "test_duplicate_groups_multi_slide": 0,
   "cross_duplicates_train_valid": 0,
+  "cross_duplicate_slides_train_valid": [],
+  "cross_duplicates_same_coords_train_valid": 0,
   "cross_duplicates_train_test": 33,
-  "cross_duplicates_valid_test": 0
+  "cross_duplicate_slides_train_test": [
+    "camelyon16_test_049",
+    "camelyon16_train_tumor_036"
+  ],
+  "cross_duplicates_same_coords_train_test": 33,
+  "cross_duplicate_slide_counts_train_test": {
+    "camelyon16_test_049": {
+      "n": 443,
+      "positive": 269
+    }
+  },
+  "cross_duplicates_valid_test": 0,
+  "cross_duplicate_slides_valid_test": [],
+  "cross_duplicates_same_coords_valid_test": 0
 }

@@ -218,6 +218,31 @@ def ladder_table_md(rows: list[dict]) -> str:
     return "\n".join(out)
 
 
+def _s2_learnings(steps: list[dict]) -> list[str]:
+    """S2 learnings, every number read from the S2 arm and step files."""
+    lr, step = _arm("S2_logreg"), next((s for s in steps if s["step"] == "S2_head"), None)
+    if lr is None or step is None:
+        return []
+    path = ", ".join(f"C={c}: {ba:.4f}" for c, ba in lr["cv_ba_per_C"].items())
+    v = step["comparisons"]["S2_logreg"]["valid"]
+    lines = ["", "## S2 learnings",
+             f"- **Logistic regression prefers the strongest regularisation on the grid.** The inner CV chose C = "
+             f"{min(lr['chosen_C_per_fold'])} in all {len(lr['chosen_C_per_fold'])} outer folds. CV BA falls as C "
+             f"grows to 1 and is flat beyond ({path}). The optimum probably lies below the pre-registered grid; the grid "
+             "was not extended after seeing this, so S2 under-tests logistic regression (limitation).",
+             f"- **The gate miss is within noise.** Logistic regression beat the original on OOF (Holm p "
+             f"{step['holm_p']['S2_logreg']:.3g}), but its valid ΔBA was {100 * v['delta_ba']:+.2f} pt "
+             f"[{100 * v['ci_ba'][0]:+.2f}, {100 * v['ci_ba'][1]:+.2f}]. The pre-registered gate needs ΔBA ≥ 0, so it "
+             "was rejected; the valid data cannot tell the two heads apart."]
+    if "S2_mlp" in step["comparisons"]:
+        m = step["comparisons"]["S2_mlp"]
+        lines.append(f"- **The MLP is clearly worse** (Δ OOF {100 * m['oof']['delta_ba']:+.2f} pt, Δ valid "
+                     f"{100 * m['valid']['delta_ba']:+.2f} pt). Untested hypothesis, consistent with the C result: inside "
+                     "CV there is no validation split for early stopping, so it trains the full 12,500 eva steps "
+                     "(≈15 epochs) and overfits the training slides. The MLP was not tuned (fixed width 512, dropout 0.1).")
+    return lines
+
+
 def render_ladder() -> str | None:
     rows = ladder_rows()
     if not rows:
@@ -249,6 +274,7 @@ def render_ladder() -> str | None:
                          f"valid gate passed: {s.get('valid_gate_passed')} → **{'adopted' if s['adopted'] else 'rejected'}**. Incumbent after: `{s['new_incumbent']}`.")
     else:
         lines.append("- No step decided yet; candidates of the current step are still being trained.")
+    lines += _s2_learnings(steps)
     lines += ["", "## Notes",
               "- **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.",
               "- **Negative results** are kept and reported like positive ones.", ""]

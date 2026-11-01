@@ -11,6 +11,7 @@ We take the best published AI model for spotting breast-cancer metastases in sma
 |---|---|---|---|
 | S1_representation | `S0_hibou_l_cls_linear` | `S1_f_best_plus_centre_view` | no |
 | S2_head | `S0_hibou_l_cls_linear` | `S2_logreg` | no |
+| S3_d4_tta | `S0_hibou_l_cls_linear` | `S3_d4_tta` | no |
 
 Current incumbent: `S0_hibou_l_cls_linear`.
 

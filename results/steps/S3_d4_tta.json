@@ -1,0 +1,44 @@
+{
+  "step": "S3_d4_tta",
+  "incumbent": "S0_hibou_l_cls_linear",
+  "candidates": [
+    "S3_d4_tta"
+  ],
+  "winner": "S3_d4_tta",
+  "comparisons": {
+    "S3_d4_tta": {
+      "oof": {
+        "delta_ba": 0.0004272377122447324,
+        "ci_ba": [
+          -0.0001711158494639467,
+          0.0012738421704449276
+        ],
+        "delta_auroc": 0.00020136730764175326,
+        "ci_auroc": [
+          3.492443454013931e-05,
+          0.0005183540557785032
+        ],
+        "p_signflip": 0.24727527247275272,
+        "n_slides": 216
+      },
+      "valid": {
+        "delta_ba": -0.0009470236043643832,
+        "ci_ba": [
+          -0.002028709434136686,
+          -3.7500068562763004e-06
+        ],
+        "delta_auroc": 0.00011835257198411497,
+        "ci_auroc": [
+          -0.00022922384430832586,
+          0.0005846733985978627
+        ],
+        "p_signflip": 0.08509149085091491,
+        "n_slides": 54
+      }
+    }
+  },
+  "oof_test_passed": false,
+  "valid_gate_passed": false,
+  "adopted": false,
+  "new_incumbent": "S0_hibou_l_cls_linear"
+}

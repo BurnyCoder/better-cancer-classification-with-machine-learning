@@ -12,6 +12,12 @@
       "winner": "S2_logreg",
       "adopted": false,
       "incumbent_after": "S0_hibou_l_cls_linear"
+    },
+    {
+      "step": "S3_d4_tta",
+      "winner": "S3_d4_tta",
+      "adopted": false,
+      "incumbent_after": "S0_hibou_l_cls_linear"
     }
   ],
   "configs": {

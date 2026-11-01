@@ -109,6 +109,21 @@
         ]
       },
       "head": "linear"
+    },
+    "S1_e_best_plus_centre_tokens": {
+      "representation": {
+        "parts": [
+          [
+            -1,
+            "cls"
+          ]
+        ],
+        "center": true,
+        "views": [
+          "full"
+        ]
+      },
+      "head": "linear"
     }
   }
 }

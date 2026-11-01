@@ -22,7 +22,7 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 - ✅ **Exact reproduction.** Our Hibou-L probe scores **0.9394 ± 0.0007** validation balanced accuracy (BA; 5 seeds), against the published **0.939** ([eva](https://github.com/kaiko-ai/eva)). Our remote-code-free model matches Hibou's own code to a cosine of 1.000000.
 - ✅ **Incumbent under cross-validation** over 216 training slides: OOF BA 0.950 (95% CI 0.937–0.960); validation 0.937 (95% CI 0.889–0.962).
 - ✅ **Controls behave as expected.** Shuffled labels: 0.520 (chance). Colour histogram only: 0.787 (95% CI 0.758–0.811). Colour carries signal, but far less than Hibou-L.
-- ⏳ **Improvement ladder (release 2, in progress).** 5 classifier(s) trained on frozen Hibou-L features so far. The best paired out-of-fold difference from the original is -0.01 pt BA (95% CI -0.15 to +0.17; `S1_f_best_plus_centre_view`). Steps decided: 1; adopted: 0.
+- ⏳ **Improvement ladder (release 2, in progress).** 6 classifier(s) trained on frozen Hibou-L features so far. The best paired out-of-fold difference from the original is +0.12 pt BA (95% CI +0.04 to +0.31; `S2_logreg`). Steps decided: 1; adopted: 0.
 - ⚠️ **Data leak found in PCam.** 33 distinct test images are pixel-identical to train images. All come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, at identical slide coordinates, which indicates a duplicate scan. CAMELYON16 notes list test_049 as a duplicate slide removed from the official release, but it is still in PCam. Every test result will also be reported without it (decided while test was sealed).
 - ⚠️ **Validation split is small.** It has 54 slides, 22 with tumour, so its CIs are 3.1× wider than the train CV ones. Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.
 - ⚠️ **The official Camelyon17-WILDS test hospital is not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 0.69 vs. 1.68 to RUMC). Our out-of-hospital check therefore uses CWZ, RST and LPON.
@@ -61,6 +61,8 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 | `S1_d_spread_6_12_18_24` | Hibou-L | linear | 8192 | 0.9469 [0.9318, 0.9585] | 0.9326 [0.8786, 0.9594] | 0.0020 | 0.9787 | yes |
 | `S1_e_best_plus_centre_tokens` | Hibou-L | linear | 2048 | 0.9496 [0.9361, 0.9599] | 0.9352 [0.8839, 0.9608] | 0.0017 | 0.9817 | yes |
 | `S1_f_best_plus_centre_view` | Hibou-L | linear | 2048 | 0.9497 [0.9362, 0.9599] | 0.9354 [0.8889, 0.9609] | 0.0000 | 0.9818 | yes |
+| `S2_logreg` | Hibou-L | logreg | 1024 | 0.9510 [0.9378, 0.9610] | 0.9365 [0.8886, 0.9618] | 0.0000 | 0.9827 | yes |
+| `S2_mlp` | Hibou-L | mlp | 1024 | 0.9312 [0.9112, 0.9462] | 0.9054 [0.8227, 0.9423] | 0.0000 | 0.9741 | yes |
 
 **Improvement ladder: every trained classifier vs. the original Hibou-L probe** (paired on the same patches; per-candidate p-values are descriptive, and adoption uses the pre-registered Holm + valid-gate rule):
 
@@ -71,6 +73,7 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 | S1 representation | `S1_d_spread_6_12_18_24` | 0.9469 [0.9318, 0.9585] | -0.29 pt [-0.69, -0.04] | 0.0931 | 0.9326 | -0.41 pt |
 | S1 representation | `S1_e_best_plus_centre_tokens` | 0.9496 [0.9361, 0.9599] | -0.01 pt [-0.14, +0.11] | 0.826 | 0.9352 | -0.15 pt |
 | S1 representation | `S1_f_best_plus_centre_view` | 0.9497 [0.9362, 0.9599] | -0.01 pt [-0.15, +0.17] | 0.944 | 0.9354 | -0.13 pt |
+| S2 head | `S2_logreg` | 0.9510 [0.9378, 0.9610] | +0.12 pt [+0.04, +0.31] | 0.0236 | 0.9365 | -0.02 pt |
 
 ![Ladder](reports/figures/ladder_deltas.png)
 <!-- RESULTS:END -->

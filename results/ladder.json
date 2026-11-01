@@ -147,6 +147,37 @@
         ]
       },
       "head": "linear"
+    },
+    "S2_logreg": {
+      "representation": {
+        "parts": [
+          [
+            -1,
+            "cls"
+          ]
+        ],
+        "center": false,
+        "views": [
+          "full"
+        ]
+      },
+      "head": "logreg",
+      "C": 0.001
+    },
+    "S2_mlp": {
+      "representation": {
+        "parts": [
+          [
+            -1,
+            "cls"
+          ]
+        ],
+        "center": false,
+        "views": [
+          "full"
+        ]
+      },
+      "head": "mlp"
     }
   }
 }

@@ -13,7 +13,6 @@ Global context: pre-registration section 6, S5/S5b.
     update is scaled by alpha and the head interpolated between the probe and the fine-tuned head.
 """
 
-import copy
 import logging
 import math
 import time

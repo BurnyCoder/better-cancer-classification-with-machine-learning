@@ -273,7 +273,7 @@ def highlights() -> str | None:
     ]
     if dup := duplicate_slide(dv):
         out.append(f"- ⚠️ **Data leak found in PCam.** {dup['n']} distinct test images are pixel-identical to train images. All come from test slide `{dup['test_slide']}` "
-                   f"and train slide(s) {', '.join(f'`{s}`' for s in dup['train_slides'])}; {dup['same_coords']} of {dup['n']} sit at identical slide coordinates, which indicates a duplicate scan. "
+                   f"and {dup['train_phrase']}, {dup['coords_phrase']}, which indicates a duplicate scan. "
                    f"The official [CAMELYON16 README]({CAMELYON16_README}) lists test_049 as a duplicate slide intentionally removed from the data set; PCam still contains it "
                    f"({dup['test_slide_n']:,} test patches). Every test result will also be reported without it (decided while test was sealed).")
     out += [

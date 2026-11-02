@@ -124,8 +124,8 @@ def build_paper() -> str | None:
       f"Our native-transformers implementation matches Hibou's own code to a mean cosine of {parity['fp32_cpu']['mean_cosine']:.6f}. "
       f"Under the cross-validation protocol the original probe reaches {_ba(s0['oof']['seed_avg'])} out-of-fold BA. "
       f"Controls behave as expected: shuffled labels give {ctrl['control_shuffled_labels']['oof']['seed_avg']['ba']:.3f} and a colour-histogram classifier gives {ctrl['control_color_histogram']['oof']['seed_avg']['ba']:.3f}. "
-      f"A pixel-hash audit found {dup['n']} test images identical to train images, all from PCam test slide `{dup['test_slide']}` and train slide `{dup['train_slides'][0]}`, "
-      f"{dup['same_coords']} of them at identical coordinates, which indicates a duplicate scan. "
+      f"A pixel-hash audit found {dup['n']} test images identical to train images, all from PCam test slide `{dup['test_slide']}` and {dup['train_phrase']}, "
+      f"{dup['coords_phrase']}, which indicates a duplicate scan. "
       "We also find that the official Camelyon17-WILDS test hospital matches the colour signature of one of PCam's own source hospitals. "
       "Both were found before any test data was used: the duplicate slide added a sensitivity analysis, and the out-of-hospital pool is being re-decided."
       + findings + (" The test split and WILDS remain sealed." if lrows else ""))
@@ -169,12 +169,14 @@ def build_paper() -> str | None:
     a("= Results")
     a("== Data audit")
     a(f"No slide is shared between splits. There are many exact duplicates *within* splits (extra copies: train {dv['train_within_split_duplicates']:,}, "
-      f"valid {dv['valid_within_split_duplicates']:,}, test {dv['test_within_split_duplicates']:,}; none with conflicting labels: "
-      f"{sum(dv[f'{s}_duplicate_groups_label_conflict'] for s in splits)} groups), consistent with PCam's probabilistic sampling {c('pcam', 'hcd')}. "
+      f"valid {dv['valid_within_split_duplicates']:,}, test {dv['test_within_split_duplicates']:,}; "
+      + (f"{conflicts} groups have conflicting labels" if (conflicts := sum(dv[f'{s}_duplicate_groups_label_conflict'] for s in splits))
+         else "no group has conflicting labels")
+      + f"), consistent with PCam's probabilistic sampling {c('pcam', 'hcd')}. "
       + (f"Only {multi} duplicate groups span two slides and can straddle CV folds; slide-grouped folds keep every other group inside one fold. " if multi else
          "No group spans two slides, so slide-grouped folds keep every copy inside one fold. ")
-      + (f"Across splits, {dup['n']} test images are pixel-identical to train images. All of them come from `{dup['test_slide']}` and `{dup['train_slides'][0]}`, "
-         f"{dup['same_coords']} of {dup['n']} at identical slide coordinates. The official CAMELYON16 README lists `test_049` as a duplicate slide that was removed "
+      + (f"Across splits, {dup['n']} test images are pixel-identical to train images. All of them come from `{dup['test_slide']}` and {dup['train_phrase']}, "
+         f"{dup['coords_phrase']}. The official CAMELYON16 README lists `test_049` as a duplicate slide that was removed "
          f"from the data set {c('c16readme')}; PCam's test split still contains it ({dup['test_slide_n']:,} patches). With the test split still sealed, "
          "we added a sensitivity analysis that excludes this slide, through the deviations log of the pre-registration." if dup else ""))
     a("== Exact reproduction of the published probe (H2)")
@@ -182,14 +184,14 @@ def build_paper() -> str | None:
       f"In bf16 the mean cosine is {parity['bf16_gpu']['mean_cosine']:.4f}, but the minimum is {parity['bf16_gpu']['min_cosine']:.4f}: bf16 noticeably perturbs a few patches. "
       f"The eva-exact probe reaches validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} ({gate['n_seeds']} seeds), against the published {hib['val_ba']:.3f}. "
       f"This passes the pre-registered ±{gate['tolerance']:.3f} gate; the seed-averaged prediction gives {_ba(eva['valid']['seed_avg'])}.")
-    a("== Incumbent under the CV protocol and controls")
+    a("== The original probe under the CV protocol, and controls")
     rows = [["Reproduced Hibou-L probe, eva-exact", "—", _ba(eva["valid"]["seed_avg"])],
             ["Hibou-L CLS + linear, CV protocol (S0)", _ba(s0["oof"]["seed_avg"]), _ba(s0["valid"]["seed_avg"])]]
     labels = {"control_color_histogram": "Colour histogram + logistic regression", "control_shuffled_labels": "Hibou-L, shuffled train labels",
               "control_majority": "Constant 'tumour' prediction"}
     for k, r in ctrl.items():
         rows.append([labels[k], _ba(r["oof"]["seed_avg"]) if "oof" in r else "—", _ba(r["valid"]["seed_avg"])])
-    for k, r in models.items():  # same architecture as Hibou-L, other weights (release 3)
+    for k, r in models.items():  # Hibou-L-sized ViT-L/14-reg4 controls with other weights (release 3)
         if r:
             rows.append([CONTROL_MODELS[k].split(":")[0], _ba(r["oof"]["seed_avg"]), _ba(r["valid"]["seed_avg"])])
     a(_table(["Arm", "Train OOF BA [95% CI]", "Valid BA [95% CI]"], rows))
@@ -208,7 +210,7 @@ def build_paper() -> str | None:
     rows_e = pub["eva_leaderboard"]["rows"]
     val_rank = 1 + sum(r["val_ba"] > hib["val_ba"] for r in rows_e)
     test_rank = 1 + sum(r["test_ba"] > hib["test_ba"] for r in rows_e)
-    a(f"#figure(image(\"../figures/published_baselines.png\", width: 88%), caption: [Published frozen-probe PCam BA (eva, validation and test) and our reproduced Hibou-L validation BA. Among {len(rows_e)} leaderboard models, Hibou-L ranks {val_rank} on validation and {test_rank} on test. The ±SD of our reproduction is smaller than its marker; * marks models outside this study's model pool.]) <pub>")
+    a(f"#figure(image(\"../figures/published_baselines.png\", width: 88%), caption: [Published frozen-probe PCam BA (eva, validation and test) and our reproduced Hibou-L validation BA. Among {len(rows_e)} leaderboard models, Hibou-L ranks {val_rank} on validation and {test_rank} on test. The ±SD of our reproduction is smaller than its marker; \\* marks models outside this study's model pool.]) <pub>")
     if wilds:
         hc = wilds["hospital_check"]
         a("== Camelyon17-WILDS preparation")
@@ -278,7 +280,7 @@ def build_paper() -> str | None:
       + (f"Label cleaning was adopted on cross-validation, but it removed {min(fr) / SELFCLEAN_RATE:.0f}–{max(fr) / SELFCLEAN_RATE:.0f} times more patches "
          f"per fold than SelfClean's PCam label-error estimate ({SELFCLEAN_PCAM_LABEL_ERRORS} images, {100 * SELFCLEAN_RATE:.1f}%) {c('selfclean')}; "
          "if that estimate holds, it also drops hard, correctly labelled patches." if fr else ""))
-    a("*Why LoRA helped.* The H4 control targets the augmentation: a frozen head trained on the same augmented images is no better than the original, "
+    a("*Why LoRA helped.* The H4 control targets the augmentation: a frozen head trained on the same patches with the same augmentation recipe is no better than the original, "
       "while LoRA is clearly better. This suggests that the gain comes from adapting the backbone's attention layers rather than from the augmentation, "
       "although the two arms also differ in optimiser and schedule, and the stain augmentation is strong (Limitations), which may handicap a frozen head scored on clean images more than LoRA. Shrinking the LoRA update (WiSE) lowered validation BA, more so the further it was shrunk; "
       "WiSE-FT targets robustness under distribution shift, which only the sealed WILDS evaluation can test.")

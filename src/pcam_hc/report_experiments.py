@@ -56,9 +56,11 @@ def duplicate_slide(dv: dict) -> dict | None:
         return None
     test_slide, c = next(iter(counts.items()))
     train = [s for s in dv["cross_duplicate_slides_train_test"] if s not in counts]
-    return {"n": dv["cross_duplicates_train_test"], "same_coords": dv["cross_duplicates_same_coords_train_test"],
-            "test_slide": test_slide, "train_slides": train, "test_slide_n": c["n"], "test_slide_pos": c["positive"],
-            "single": len(counts) == 1}
+    n, same = dv["cross_duplicates_train_test"], dv["cross_duplicates_same_coords_train_test"]
+    return {"n": n, "same_coords": same, "test_slide": test_slide, "train_slides": train,
+            "test_slide_n": c["n"], "test_slide_pos": c["positive"],
+            "train_phrase": ("train slide " if len(train) == 1 else "train slides ") + ", ".join(f"`{s}`" for s in train),
+            "coords_phrase": "all at identical slide coordinates" if same == n else f"{same} of {n} at identical slide coordinates"}
 
 
 def render_stage_a() -> str | None:
@@ -99,9 +101,8 @@ def render_stage_a() -> str | None:
     ]
     if dup := duplicate_slide(dv):
         lines += [
-            f"  - The {dup['n']} train–test duplicates come from test slide `{dup['test_slide']}` and train slide(s) "
-            f"{', '.join(f'`{s}`' for s in dup['train_slides'])}; {dup['same_coords']} of {dup['n']} sit at identical slide coordinates, "
-            "which indicates a duplicate scan.",
+            f"  - The {dup['n']} train–test duplicates come from test slide `{dup['test_slide']}` and {dup['train_phrase']}, "
+            f"{dup['coords_phrase']}, which indicates a duplicate scan.",
             f"  - The official [CAMELYON16 README]({CAMELYON16_README}) lists test_049 as a \"Duplicate slide\" that was intentionally removed "
             f"from the data set; PCam's test split still contains it ({dup['test_slide_n']:,} patches, {dup['test_slide_pos']:,} with tumour).",
             "  - Decision while test was still sealed: report every test metric also without that slide (deviations log).",
@@ -138,7 +139,7 @@ def render_stage_a() -> str | None:
     for name, r in models.items():
         if r is not None:
             lines.append(f"- `{name}` ({CONTROL_MODELS[name]}): OOF BA {_ba(r['oof']['seed_avg'])}; valid BA {_ba(r['valid']['seed_avg'])}. "
-                         f"Same CLS + eva linear head, CV protocol, {r['oof']['n_seeds']} seed(s).")
+                         f"Same CLS + eva linear head, CV protocol, {r['oof']['n_seeds']} seed{'s' if r['oof']['n_seeds'] > 1 else ''}.")
     lines += [
         "",
         "**Interpretation:**",

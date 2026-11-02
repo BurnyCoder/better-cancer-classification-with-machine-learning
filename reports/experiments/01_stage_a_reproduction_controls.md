@@ -13,22 +13,22 @@
   - valid 32,768 / 54 (22);
   - test 32,768 / 129 (49).
 - **Shared slides between splits:** train–valid 0, train–test 0, valid–test 0. Labels match the meta CSVs in every split: True.
-- **Exact pixel duplicates within splits:** train 42,119, valid 4,660, test 3,385. The slide-grouped folds keep identical patches of a slide in the same fold, so they cannot leak across CV folds.
+- **Exact pixel duplicates within splits** (extra copies / groups): train 42,119 / 15,235, valid 4,660 / 2,181, test 3,385 / 1,792. Groups with conflicting labels: 0; groups spanning more than one slide: 2; those groups can straddle CV folds.
 - **Exact duplicates across splits:** train–test 33, train–valid 0, valid–test 0.
-  - The train–test duplicates all come from slides camelyon16_test_049 / camelyon16_train_tumor_036, at identical slide coordinates.
-  - Secondary sources (the eva documentation) report a duplicate CAMELYON16 test slide that was removed from the official release; PCam still contains test_049.
-  - Decision while test was still sealed: report every test metric also without that slide (deviation log).
+  - The 33 train–test duplicates come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, all at identical slide coordinates, which indicates a duplicate scan.
+  - The official [CAMELYON16 README](https://camelyon-dataset.s3.amazonaws.com/CAMELYON16/README.md) lists test_049 as a "Duplicate slide" that was intentionally removed from the data set; PCam's test split still contains it (443 patches, 269 with tumour).
+  - Decision while test was still sealed: report every test metric also without that slide (deviations log).
 
 ## Reproducing Hibou-L (H2 gate)
-**Embedding parity** (`results/parity.json`), first 256 validation patches, against kaiko-eva running Hibou's own remote code (transformers 4.46.3):
+**Embedding parity** (`results/parity.json`), first 256 validation patches, against kaiko-eva running Hibou's own remote code (transformers 4.46.3, pinned in `tools/eva_parity`):
 - fp32 native: mean cosine 1.000000, max |Δ| 6.79e-06. The native transformers class is numerically identical to the remote code.
 - bf16 GPU (used for all embeddings): mean cosine 0.9994, minimum 0.9336. The gate requires > 0.999, so it passes. bf16 rounding perturbs a few patches noticeably.
 
-**eva-exact probe** (CLS, `nn.Linear`, AdamW 3e-4, batch 256, ≤ 12,500 steps, early stopping on valid BA with patience 3, 5 seeds):
+**eva-exact probe** (CLS, `nn.Linear`, AdamW 0.0003, batch 256, ≤ 12,500 steps, early stopping on valid BA with patience 3, 5 seeds):
 - Valid BA per seed: mean 0.9394 ± 0.0007, against eva's published 0.939. Gate (±0.010): **pass**.
 - Seed-averaged prediction: 0.9396 [0.8936, 0.9638], AUROC 0.9833.
 
-## S0 incumbent under the CV protocol
+## S0: the original Hibou-L probe under the CV protocol
 Every later step is compared with this arm: Hibou-L CLS with the eva linear head, a fixed 12,500 steps and no valid early stopping, 5 slide-grouped folds × 5 seeds.
 - OOF BA 0.9498 [0.9366, 0.9600], AUROC 0.9843, seed SD 0.0004.
 - Valid BA 0.9367 [0.8888, 0.9617].
@@ -38,24 +38,25 @@ Every later step is compared with this arm: Hibou-L CLS with the eva linear head
 - `control_shuffled_labels`: OOF BA 0.5204 [0.4935, 0.5457]; valid BA 0.4731 [0.4280, 0.5212]. Hibou-L CLS, linear head trained on permuted train labels.
 - `control_color_histogram`: OOF BA 0.7870 [0.7580, 0.8106]; valid BA 0.8098 [0.7530, 0.8472]. 96-bin RGB histogram + logistic regression (stain shortcut check).
 - `control_majority`: OOF BA —; valid BA 0.5000 [0.5000, 0.5000]. constant prediction.
-- `S0_scan_dinov2_reg_l` (DINOv2-L/14-reg4 with natural-image weights: Hibou-L's architecture without pathology pretraining): OOF BA 0.8797 [0.8622, 0.8940]; valid BA 0.8682 [0.8103, 0.9023]. Same CLS + eva linear head, CV protocol, 1 seed.
-- `S0_scan_random_vitl_reg4` (ViT-L/14-reg4 with random weights, seed 0: the same architecture without any pretraining): OOF BA 0.7973 [0.7692, 0.8201]; valid BA 0.7902 [0.7232, 0.8334]. Same CLS + eva linear head, CV protocol, 1 seed.
+- `S0_scan_dinov2_reg_l` (DINOv2-L/14-reg4 with natural-image weights: Hibou-L's size without pathology pretraining (a standard MLP block instead of Hibou-L's SwiGLU)): OOF BA 0.8797 [0.8622, 0.8940]; valid BA 0.8682 [0.8103, 0.9023]. Same CLS + eva linear head, CV protocol, 1 seed.
+- `S0_scan_random_vitl_reg4` (ViT-L/14-reg4 with random weights, seed 0: Hibou-L's exact architecture config without any pretraining): OOF BA 0.7973 [0.7692, 0.8201]; valid BA 0.7902 [0.7232, 0.8334]. Same CLS + eva linear head, CV protocol, 1 seed.
 
 **Interpretation:**
 - Shuffled labels land at chance, so no leakage path lets labels reach the predictions.
-- A 96-bin colour histogram already separates tumour from normal far above chance, because tumour is more hyperchromatic. It stays far below the foundation model.
-- **Same architecture, different weights** (unpaired point estimates, OOF BA): pathology pretraining (Hibou-L) is 7.0 pt above natural-image pretraining (DINOv2-L), which is 8.2 pt above random weights. Random-weight features score close to the colour histogram (0.797 vs. 0.787), consistent with them carrying mostly colour and texture statistics (not tested directly).
+- A 96-bin colour histogram with logistic regression already separates tumour from normal far above chance, but stays far below the foundation model.
+- **Same size, different weights** (unpaired point estimates, OOF BA; DINOv2-L also differs in its MLP block): pathology pretraining (Hibou-L) is 7.0 pt above natural-image pretraining (DINOv2-L), which is 8.2 pt above random weights. Random-weight features score close to the colour histogram (0.797 vs. 0.787), consistent with them carrying mostly colour and texture statistics (not tested directly).
 
 ## Camelyon17-WILDS preparation (`results/wilds_data.json`; no predictions yet)
-- **Source:** the official CodaLab download failed on 2026-11-01 because its TLS certificate had expired. The data come from the Hugging Face parquet mirror `wltjr1007/Camelyon17-WILDS`.
+- **Source:** the official CodaLab download failed on 2026-11-01 because its TLS certificate had expired. The data come from the Hugging Face parquet mirror `wltjr1007/Camelyon17-WILDS` (revision `d784d53`).
 - **Count check:** train/val/test sizes match the WILDS paper (True/True/True); 50 slides.
 - **Fixed subsample:** ≤1,000 patches per slide, seed 0, 49,888 patches.
 - **Hospital check** (L1 distance of mean colour histograms):
   - The assumed RUMC/UMCU split of PCam slides is far more separated (1.30) than a random slide split (0.14), which supports the slide-numbering assumption.
-  - WILDS centre 2 (the official WILDS *test* hospital) is closest to UMCU (0.69 vs. 1.68). It is therefore a Camelyon16 source hospital, not out-of-distribution for PCam-trained models.
-  - The pre-registered primary OOD pool is centres 0, 1, 4, reported as CWZ, RST, LPON (arXiv:2404.11161 v1). This mapping is uncertain: centres 0, 3 and 4 share one scanner ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373), §4.1), which with the per-hospital scanners in [Litjens et al. 2018](https://academic.oup.com/gigascience/article/7/6/giy065/5026175) places RUMC, a Camelyon16 hospital, among centres 0, 3, 4. The colour check cannot separate them. The pool is re-examined and logged before WILDS is unsealed.
+  - WILDS centre 2 (the official WILDS *test* hospital) is closest to UMCU (0.69 vs. 1.68), so it is most likely UMCU, a Camelyon16 source hospital, and not out-of-distribution for PCam-trained models.
+  - The planned out-of-hospital pool is centres 0, 1 and 4, read as CWZ, RST and LPON from [arXiv:2404.11161v1](https://arxiv.org/abs/2404.11161v1) §2.1; it is logged as an open issue in the deviations log (the pre-registration only excludes RUMC and UMCU). Scanner metadata contradict that reading: centres 0, 3 and 4 share one scanner ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373), §4.1), and RUMC, CWZ and RST slides were scanned on one 3DHistech scanner ([Litjens et al. 2018](https://academic.oup.com/gigascience/article/7/6/giy065/5026175)), which puts RUMC, a Camelyon16 hospital, among centres 0, 3 and 4. The colour check does not separate those three. The pool is re-decided and logged before WILDS is unsealed.
 
 ## Learnings
+*Timings and rates are approximate observations from the (uncommitted) run logs.*
 - **HF login token.** Overriding `HF_HOME` to move the model cache hid the stored Hugging Face login token, and licence-accepted models returned 401. Use `HF_HUB_CACHE` instead.
 - **Hibou-L without remote code.** Hibou's custom `Dinov2ModelWithRegisters` maps cleanly onto transformers 5's native `Dinov2WithRegistersModel`, so it runs without remote code. The fp32 outputs are identical.
 - **`hf download` reliability.** The `hf download` CLI silently skipped some repositories; `snapshot_download` from Python was reliable.

@@ -3,14 +3,16 @@
 Global context: WILDS Camelyon17 (Koh et al. 2021, https://arxiv.org/abs/2012.07421) has 96x96
 patches from 50 slides of 5 hospitals, labelled with the same rule as PCam (any tumour pixel in
 the centre 32x32) at the same ~0.97 um/px resolution. The official CodaLab download had an expired
-TLS certificate on 2026-11-01, so the data come from the Hugging Face parquet mirror
-`wltjr1007/Camelyon17-WILDS` (pinned revision), and its per-centre counts are checked against the
-WILDS paper. Nothing is fit on these patches. Like the PCam test split, they are embedded and
-scored only after the ladder is frozen.
+TLS certificate on 2026-11-01, so the data come from a local copy of the Hugging Face parquet mirror
+`wltjr1007/Camelyon17-WILDS` at revision MIRROR_REVISION (downloaded with huggingface_hub into MIRROR;
+this module only reads it), and its split sizes are checked against the WILDS paper. Nothing is fit
+on these patches. Like the PCam test split, they are embedded and scored only after the ladder is frozen.
 
-Centre IDs: 0 = CWZ, 1 = RST, 4 = LPON (arXiv:2404.11161); 2 and 3 are the Camelyon16 source
-hospitals (RUMC, UMCU). The primary OOD pool is the hospitals Camelyon16 did not use. That mapping
-is cross-checked empirically by `hospital_colour_check` against PCam slides of known hospital.
+Centre IDs are unresolved (deviations log, open issue e). arXiv:2404.11161v1 Sec. 2.1 gives 0 = CWZ,
+1 = RST, 4 = LPON. Tomar et al. 2024 (arXiv:2411.09373, Sec. 4.1: centres 0, 3 and 4 share one scanner)
+with Litjens et al. 2018 (RUMC, CWZ and RST slides were scanned on one 3DHistech scanner) instead imply
+{0, 3, 4} = {RUMC, CWZ, RST}. The pool of hospitals Camelyon16 did not use is re-decided and logged
+before WILDS is unsealed; `hospital_colour_check` compares centres with PCam slides of known hospital.
 """
 
 import io
@@ -27,10 +29,12 @@ from pcam_hc.config import PATHS
 log = logging.getLogger(__name__)
 WILDS_DIR = Path(str(PATHS.data).replace("pcam", "wilds"))  # D:/AI/wilds
 MIRROR = WILDS_DIR / "hf_mirror"
-# Split sizes reported in the WILDS paper, Table 9 (train / ID val / OOD val / test).
+MIRROR_REVISION = "d784d5344ba6c967f83f9f3d9b2f1e2a4d6eb78f"  # from MIRROR/.cache/huggingface/download/*.metadata
+# Split sizes reported in the WILDS paper, App. E.2.1 "Data" (train / ID val / OOD val / test).
 EXPECTED = {"train": 302_436, "id_val": 33_560, "ood_val": 34_904, "test": 85_054}
+# Mapping of arXiv:2404.11161v1; disputed by scanner metadata (module docstring), re-decided before unsealing.
 CENTER_HOSPITAL = {0: "CWZ", 1: "RST", 2: "RUMC or UMCU", 3: "RUMC or UMCU", 4: "LPON"}
-PRIMARY_OOD_CENTERS = (0, 1, 4)  # hospitals that did not contribute to Camelyon16 / PCam
+PRIMARY_OOD_CENTERS = (0, 1, 4)  # planned non-Camelyon16 pool under that mapping (open issue e)
 META_COLS = ["label", "center", "image_id", "patient", "node", "x_coord", "y_coord", "slide"]
 
 

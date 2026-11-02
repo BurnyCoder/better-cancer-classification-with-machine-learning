@@ -3,5 +3,6 @@
   "valid_ba_seed_sd": 0.0007198380465656146,
   "target": 0.939,
   "tolerance": 0.01,
-  "pass": true
+  "pass": true,
+  "n_seeds": 5
 }

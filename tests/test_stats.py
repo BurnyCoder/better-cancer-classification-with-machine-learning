@@ -87,3 +87,14 @@ def test_holm_matches_textbook_example():
     # Holm (1979): sorted p * (m - rank), cumulative max, capped at 1.
     p = np.array([0.01, 0.04, 0.03, 0.005])
     assert np.allclose(holm(p), [0.03, 0.06, 0.06, 0.02])
+
+
+def test_summarise_records_seed_count_and_no_sd_for_one_seed():
+    """A single seed has no seed SD: it is recorded as None (rendered "—"), not as a measured 0."""
+    from pcam_hc.experiments import summarise
+
+    slides, y, la, lb = _clustered(n_slides=20, per_slide=20)
+    one = summarise(y, la[None], slides, n_boot=50)
+    assert one["n_seeds"] == 1 and one["seed_sd"] is None
+    two = summarise(y, np.stack([la, lb]), slides, n_boot=50)
+    assert two["n_seeds"] == 2 and two["seed_sd"]["ba"] >= 0

@@ -87,3 +87,23 @@ def test_real_splits_are_slide_disjoint():
     assert not slides["train"] & slides["valid"]
     assert not slides["train"] & slides["test"]
     assert not slides["valid"] & slides["test"]
+
+
+def test_duplicate_audit_counts_groups_conflicts_and_cross_split_coordinates():
+    """Exact-duplicate audit on hashes aligned with meta rows (the claims in the data-audit report)."""
+    from pcam_hc.data import duplicate_audit
+
+    meta = lambda wsi, x, y, lab: pd.DataFrame(  # noqa: E731
+        {"wsi": wsi, "coord_x": x, "coord_y": y, "center_tumor_patch": lab})
+    metas = {"train": meta(["a", "a", "a", "b", "b"], [0, 0, 5, 9, 9], [0, 0, 5, 9, 9], [1, 1, 0, 0, 1]),
+             "test": meta(["t", "t", "u"], [5, 7, 9], [5, 7, 9], [0, 1, 0])}
+    hashes = {"train": ["h1", "h1", "h2", "h3", "h3"], "test": ["h2", "h4", "h3"]}
+    r = duplicate_audit(hashes, metas)
+    assert r["train_within_split_duplicates"] == 2  # two extra copies (h1 and h3)
+    assert r["train_duplicate_groups"] == 2
+    assert r["train_duplicate_groups_label_conflict"] == 1  # h3: labels 0 and 1
+    assert r["train_duplicate_groups_multi_slide"] == 0
+    assert r["cross_duplicates_train_test"] == 2  # h2 and h3
+    assert r["cross_duplicate_slides_train_test"] == ["a", "b", "t", "u"]
+    assert r["cross_duplicates_same_coords_train_test"] == 2  # h2 at (5,5) and h3 at (9,9) in both splits
+    assert r["cross_duplicate_slide_counts_train_test"] == {"t": {"n": 2, "positive": 1}, "u": {"n": 1, "positive": 0}}

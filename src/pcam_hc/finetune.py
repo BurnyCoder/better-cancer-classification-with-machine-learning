@@ -3,11 +3,15 @@
 Global context: pre-registration section 6, S5/S5b.
   * LoRA (Hu et al. 2021, https://arxiv.org/abs/2106.09685) via `peft` on the attention
     query/key/value/output projections of all 24 blocks.
-  * LP-FT (Kumar et al. 2022, https://arxiv.org/abs/2202.10054): the classifier starts from the
-    S2 probe head (including its z-scoring), so fine-tuning begins at the linear-probe solution.
-  * Augmentation: D4 (random rotation/flip) + HED-light stain jitter (Tellez et al. 2019,
+  * LP-FT (Kumar et al. 2022, https://arxiv.org/abs/2202.10054): the classifier starts from a probe fitted
+    with the incumbent's frozen-probe recipe on the LoRA training patches (`stage_c.lp_head`; the S2 head
+    change was rejected), so fine-tuning begins at the linear-probe solution.
+  * Augmentation: D4 (random rotation/flip) + HED stain jitter (Tellez et al. 2018, IEEE TMI, App. B Eq. 6,
+    https://arxiv.org/abs/1808.05896; called "HED-light" at s = 0.05 in Tellez et al. 2019,
     https://arxiv.org/abs/1902.06543): alpha ~ U(1-s, 1+s), beta ~ U(-s, s) per HED channel, s = 0.05.
-  * Drop-path 0.1, EMA of the trainable weights (decay 0.999), AdamW + cosine schedule with warm-up,
+    The stain space here is scikit-image's (see `augment` for the resulting strength).
+  * Drop-path 0.1 (Mai et al. 2025, https://arxiv.org/abs/2409.16434), EMA of the trainable weights
+    (decay 0.999; Morales-Brotons et al. 2024, https://arxiv.org/abs/2411.18704), AdamW + cosine schedule with warm-up,
     bf16 autocast, gradient checkpointing.
   * WiSE-FT-style interpolation (Wortsman et al. 2022, https://arxiv.org/abs/2109.01903): the LoRA
     update is scaled by alpha and the head interpolated between the probe and the fine-tuned head.
@@ -28,7 +32,7 @@ log = logging.getLogger(__name__)
 LORA_TARGETS = r".*attention\.(q_proj|k_proj|v_proj|o_proj)"
 
 # Ruifrok & Johnston stain vectors as used by scikit-image (skimage.color.rgb_from_hed / hed_from_rgb):
-# https://github.com/scikit-image/scikit-image/blob/main/skimage/color/colorconv.py
+# https://github.com/scikit-image/scikit-image/blob/main/src/skimage/color/colorconv.py
 RGB_FROM_HED = torch.tensor([[0.65, 0.70, 0.29], [0.07, 0.99, 0.11], [0.27, 0.57, 0.78]], dtype=torch.float64)
 HED_FROM_RGB = torch.linalg.inv(RGB_FROM_HED)
 LOG_ADJUST = math.log(1e-6)
@@ -54,10 +58,11 @@ def hed_jitter(x: torch.Tensor, sigma: float, generator: torch.Generator | None 
 
 
 def augment(x: torch.Tensor, sigma: float, generator: torch.Generator) -> torch.Tensor:
-    """Random D4 element per image, then HED jitter. Note on strength: in scikit-image >= 0.19 stain units
-    sigma = 0.05 shifts each stain by up to 0.05 * ln(1e6) = 0.69 optical density, which changes pixels by
-    about 36/255 on average (measured on PCam valid); Tellez et al. 2019 call sigma = 0.05 "HED-light" but
-    do not state the units."""
+    """Random D4 element per image, then HED jitter. Note on strength: scikit-image (>= 0.19) divides the
+    optical density by ln(1e6), so sigma = 0.05 shifts each stain by up to 0.05 * ln(1e6) = 0.69 OD, which
+    changes pixels by about 36/255 on average (`results/hed_strength.json`, PCam valid). Tellez et al. 2018
+    (App. B Eqs. 5-6) perturb unscaled OD stain values, where the same sigma shifts a stain by at most 0.05:
+    the additive term here is ln(1e6) = 13.8x theirs (the multiplicative alpha is unit-free and identical)."""
     ks = torch.randint(0, 8, (x.shape[0],), generator=generator)
     x = torch.stack([d4_view(img, int(k)) for img, k in zip(x, ks)])
     return hed_jitter(x, sigma, generator)
@@ -95,8 +100,8 @@ class LoraClassifier(nn.Module):
     """Hibou-L + LoRA adapters + (z-scored) linear head on the ladder's representation.
 
     The representation (blocks, pooling, centre tokens) and image views (e.g. full + centre crop)
-    are those selected in S1, and the head and z-scoring are the S2 probe's (LP-FT), so fine-tuning
-    starts exactly at the frozen-probe solution."""
+    are the incumbent's, and the head (with its z-scoring, if any) is the LP-FT probe from
+    `stage_c.lp_head`, so fine-tuning starts exactly at the frozen-probe solution."""
 
     def __init__(self, backbone: nn.Module, spec, head_state: dict, rep, views=("full",),
                  rank: int = 8, drop_path: float = 0.1):

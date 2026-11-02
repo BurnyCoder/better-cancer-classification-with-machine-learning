@@ -112,7 +112,7 @@
   },
   "literature": [
     {
-      "model": "P4M-DenseNet (rotation-equivariant CNN, trained from scratch)",
+      "model": "P4M-DenseNet (rotation-equivariant CNN; no pretraining reported)",
       "metric": "accuracy",
       "value": 0.898,
       "source": "https://arxiv.org/abs/1806.03962",
@@ -144,21 +144,21 @@
       "metric": "accuracy",
       "value": 0.916,
       "source": "https://arxiv.org/abs/2410.16038",
-      "where": "Lee et al. 2024, PCam results"
+      "where": "Lee et al. 2024, Table 3 (the PEFT column is LoRA)"
     },
     {
       "model": "UNI, full fine-tuning",
       "metric": "accuracy",
       "value": 0.904,
       "source": "https://arxiv.org/abs/2410.16038",
-      "where": "Lee et al. 2024, PCam results"
+      "where": "Lee et al. 2024, Table 3 (the PEFT column is LoRA)"
     },
     {
       "model": "UNI, LoRA",
       "metric": "accuracy",
       "value": 0.9424,
       "source": "https://arxiv.org/abs/2410.16038",
-      "where": "Lee et al. 2024, PCam results"
+      "where": "Lee et al. 2024, Table 3 (the PEFT column is LoRA)"
     }
   ]
 }

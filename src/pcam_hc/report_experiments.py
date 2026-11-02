@@ -1,4 +1,4 @@
-"""Per-experiment Markdown reports rendered from results/*.json (no hand-typed numbers).
+"""Per-experiment Markdown reports rendered from results/*.json (every result number is read from results/).
 
 Global context: the user's reporting rules require one .md file per experiment plus a summary, with
 methodology, learnings and every number traceable to a results file. Each `render_*` function below
@@ -7,11 +7,26 @@ them to reports/experiments/. Re-running `main.py report` regenerates them after
 """
 
 import json
+import math
 from collections import Counter
 
-from pcam_hc.config import PATHS, PROJECT_ROOT
+from pcam_hc.config import EVA, N_FOLDS, PATHS, PROJECT_ROOT
+from pcam_hc.wilds import MIRROR_REVISION
 
 EXP_DIR = PROJECT_ROOT / "reports" / "experiments"
+CAMELYON16_README = "https://camelyon-dataset.s3.amazonaws.com/CAMELYON16/README.md"  # lists test_049 as "Duplicate slide"
+# SelfClean's PCam label-error estimate (automatic mode, alpha 0.10, q 0.05): 589 of 327,680 images,
+# arXiv:2305.17048 App. L.1 Table 14. A cited literature constant, not a result of this study.
+SELFCLEAN_PCAM_LABEL_ERRORS, PCAM_SIZE = 589, 327_680
+SELFCLEAN_RATE = SELFCLEAN_PCAM_LABEL_ERRORS / PCAM_SIZE
+LITJENS = "https://academic.oup.com/gigascience/article/7/6/giy065/5026175"
+# The WILDS out-of-hospital pool and why it is still open (shared by the Stage A report and the README highlights).
+WILDS_POOL_MD = ("The planned out-of-hospital pool is centres 0, 1 and 4, read as CWZ, RST and LPON from "
+                 "[arXiv:2404.11161v1](https://arxiv.org/abs/2404.11161v1) §2.1; it is logged as an open issue in the deviations log "
+                 "(the pre-registration only excludes RUMC and UMCU). Scanner metadata contradict that reading: centres 0, 3 and 4 share one "
+                 "scanner ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373), §4.1), and RUMC, CWZ and RST slides were scanned on one "
+                 f"3DHistech scanner ([Litjens et al. 2018]({LITJENS})), which puts RUMC, a Camelyon16 hospital, among centres 0, 3 and 4. "
+                 "The colour check does not separate those three. The pool is re-decided and logged before WILDS is unsealed.")
 
 
 def _j(name: str) -> dict | None:
@@ -28,8 +43,24 @@ def _ba(block: dict) -> str:
     return f"{block['ba']:.4f} [{lo:.4f}, {hi:.4f}]"
 
 
-CONTROL_MODELS = {"S0_scan_dinov2_reg_l": "DINOv2-L/14-reg4 with natural-image weights: Hibou-L's architecture without pathology pretraining",
-                  "S0_scan_random_vitl_reg4": "ViT-L/14-reg4 with random weights, seed 0: the same architecture without any pretraining"}
+CONTROL_MODELS = {"S0_scan_dinov2_reg_l": "DINOv2-L/14-reg4 with natural-image weights: Hibou-L's size without pathology pretraining "
+                                          "(a standard MLP block instead of Hibou-L's SwiGLU)",
+                  "S0_scan_random_vitl_reg4": "ViT-L/14-reg4 with random weights, seed 0: Hibou-L's exact architecture config without any pretraining"}
+
+
+def duplicate_slide(dv: dict) -> dict | None:
+    """The train-test duplicate finding from data_verification.json: slides, coordinate matches and the
+    test slide's patch counts (keys written by `data.duplicate_audit`)."""
+    counts = dv.get("cross_duplicate_slide_counts_train_test")
+    if not counts:
+        return None
+    test_slide, c = next(iter(counts.items()))
+    train = [s for s in dv["cross_duplicate_slides_train_test"] if s not in counts]
+    n, same = dv["cross_duplicates_train_test"], dv["cross_duplicates_same_coords_train_test"]
+    return {"n": n, "same_coords": same, "test_slide": test_slide, "train_slides": train,
+            "test_slide_n": c["n"], "test_slide_pos": c["positive"],
+            "train_phrase": ("train slide " if len(train) == 1 else "train slides ") + ", ".join(f"`{s}`" for s in train),
+            "coords_phrase": "all at identical slide coordinates" if same == n else f"{same} of {n} at identical slide coordinates"}
 
 
 def render_stage_a() -> str | None:
@@ -37,6 +68,7 @@ def render_stage_a() -> str | None:
     eva = _arm("S0_eva_exact_hibou_l")
     if not (dv and parity and gate and s0 and eva):
         return None
+    ep = eva["eva_protocol"]
     ctrl = {k: _arm(k) for k in ("control_shuffled_labels", "control_color_histogram", "control_majority")}
     wilds = _j("wilds_data.json")
     lines = [
@@ -57,26 +89,41 @@ def render_stage_a() -> str | None:
         f"- **Shared slides between splits:** train–valid {dv['shared_slides_train_valid']}, train–test "
         f"{dv['shared_slides_train_test']}, valid–test {dv['shared_slides_valid_test']}. Labels match the meta CSVs in every split: "
         f"{dv['train_label_matches_meta'] and dv['valid_label_matches_meta'] and dv['test_label_matches_meta']}.",
-        f"- **Exact pixel duplicates within splits:** train {dv['train_within_split_duplicates']:,}, valid "
-        f"{dv['valid_within_split_duplicates']:,}, test {dv['test_within_split_duplicates']:,}. The slide-grouped folds keep identical patches of a "
-        "slide in the same fold, so they cannot leak across CV folds.",
+        "- **Exact pixel duplicates within splits** (extra copies / groups): "
+        + ", ".join(f"{s} {dv[f'{s}_within_split_duplicates']:,} / {dv[f'{s}_duplicate_groups']:,}" for s in ("train", "valid", "test")) + ". "
+        f"Groups with conflicting labels: {sum(dv[f'{s}_duplicate_groups_label_conflict'] for s in ('train', 'valid', 'test'))}; "
+        f"groups spanning more than one slide: {sum(dv[f'{s}_duplicate_groups_multi_slide'] for s in ('train', 'valid', 'test'))}"
+        + (", so slide-grouped folds keep every copy in one fold and duplicates cannot leak across CV folds."
+           if not any(dv[f'{s}_duplicate_groups_multi_slide'] for s in ('train', 'valid', 'test')) else
+           "; those groups can straddle CV folds."),
         f"- **Exact duplicates across splits:** train–test {dv['cross_duplicates_train_test']}, train–valid "
         f"{dv['cross_duplicates_train_valid']}, valid–test {dv['cross_duplicates_valid_test']}.",
-        f"  - The train–test duplicates all come from slides {', '.join(dv.get('cross_duplicate_slides_train_test', [])) or 'camelyon16_test_049 / camelyon16_train_tumor_036'}, at identical slide coordinates.",
-        "  - Secondary sources (the eva documentation) report a duplicate CAMELYON16 test slide that was removed from the official release; PCam still contains test_049.",
-        "  - Decision while test was still sealed: report every test metric also without that slide (deviation log).",
+    ]
+    if dup := duplicate_slide(dv):
+        lines += [
+            f"  - The {dup['n']} train–test duplicates come from test slide `{dup['test_slide']}` and {dup['train_phrase']}, "
+            f"{dup['coords_phrase']}, which indicates a duplicate scan.",
+            f"  - The official [CAMELYON16 README]({CAMELYON16_README}) lists test_049 as a \"Duplicate slide\" that was intentionally removed "
+            f"from the data set; PCam's test split still contains it ({dup['test_slide_n']:,} patches, {dup['test_slide_pos']:,} with tumour).",
+            "  - Decision while test was still sealed: report every test metric also without that slide (deviations log).",
+        ]
+    lines += [
         "",
         "## Reproducing Hibou-L (H2 gate)",
-        "**Embedding parity** (`results/parity.json`), first 256 validation patches, against kaiko-eva running Hibou's own remote code (transformers 4.46.3):",
+        f"**Embedding parity** (`results/parity.json`), first {parity['n']} validation patches, against kaiko-eva running Hibou's own remote code "
+        "(transformers 4.46.3, pinned in `tools/eva_parity`):",
         f"- fp32 native: mean cosine {parity['fp32_cpu']['mean_cosine']:.6f}, max |Δ| {parity['fp32_cpu']['max_abs_diff']:.2e}. The native transformers class is numerically identical to the remote code.",
         f"- bf16 GPU (used for all embeddings): mean cosine {parity['bf16_gpu']['mean_cosine']:.4f}, minimum {parity['bf16_gpu']['min_cosine']:.4f}. The gate requires > 0.999, so it passes. bf16 rounding perturbs a few patches noticeably.",
         "",
-        "**eva-exact probe** (CLS, `nn.Linear`, AdamW 3e-4, batch 256, ≤ 12,500 steps, early stopping on valid BA with patience 3, 5 seeds):",
-        f"- Valid BA per seed: mean {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f}, against eva's published 0.939. Gate (±0.010): **{'pass' if gate['pass'] else 'fail'}**.",
+        f"**eva-exact probe** (CLS, `nn.Linear`, AdamW {ep['lr']:g}, batch {ep['batch_size']}, ≤ {ep['max_steps']:,} steps, early stopping on valid BA "
+        f"with patience {ep['patience']}, {gate['n_seeds']} seeds):",
+        f"- Valid BA per seed: mean {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f}, against eva's published {gate['target']:.3f}. "
+        f"Gate (±{gate['tolerance']:.3f}): **{'pass' if gate['pass'] else 'fail'}**.",
         f"- Seed-averaged prediction: {_ba(eva['valid']['seed_avg'])}, AUROC {eva['valid']['seed_avg']['auroc']:.4f}.",
         "",
-        "## S0 incumbent under the CV protocol",
-        "Every later step is compared with this arm: Hibou-L CLS with the eva linear head, a fixed 12,500 steps and no valid early stopping, 5 slide-grouped folds × 5 seeds.",
+        "## S0: the original Hibou-L probe under the CV protocol",
+        f"Every later step is compared with this arm: Hibou-L CLS with the eva linear head, a fixed {EVA.max_steps:,} steps and no valid early stopping, "
+        f"{N_FOLDS} slide-grouped folds × {s0['oof']['n_seeds']} seeds.",
         f"- OOF BA {_ba(s0['oof']['seed_avg'])}, AUROC {s0['oof']['seed_avg']['auroc']:.4f}, seed SD {s0['oof']['seed_sd']['ba']:.4f}.",
         f"- Valid BA {_ba(s0['valid']['seed_avg'])}.",
         f"- The valid interval is {(s0['valid']['seed_avg']['ci_ba'][1] - s0['valid']['seed_avg']['ci_ba'][0]) / (s0['oof']['seed_avg']['ci_ba'][1] - s0['oof']['seed_avg']['ci_ba'][0]):.1f}× wider than the OOF interval: valid has only {dv['valid_slides']} slides, {dv['valid_tumour_slides']} with tumour. That is why the pre-registration makes valid a one-shot *no-harm* gate and selects on train CV.",
@@ -92,17 +139,17 @@ def render_stage_a() -> str | None:
     for name, r in models.items():
         if r is not None:
             lines.append(f"- `{name}` ({CONTROL_MODELS[name]}): OOF BA {_ba(r['oof']['seed_avg'])}; valid BA {_ba(r['valid']['seed_avg'])}. "
-                         "Same CLS + eva linear head, CV protocol, 1 seed.")
+                         f"Same CLS + eva linear head, CV protocol, {r['oof']['n_seeds']} seed{'s' if r['oof']['n_seeds'] > 1 else ''}.")
     lines += [
         "",
         "**Interpretation:**",
         "- Shuffled labels land at chance, so no leakage path lets labels reach the predictions.",
-        "- A 96-bin colour histogram already separates tumour from normal far above chance, because tumour is more hyperchromatic. It stays far below the foundation model.",
+        "- A 96-bin colour histogram with logistic regression already separates tumour from normal far above chance, but stays far below the foundation model.",
     ]
     if all(models.values()):
         nat, rnd = (models[n]["oof"]["seed_avg"]["ba"] for n in CONTROL_MODELS)
         hib, col = s0["oof"]["seed_avg"]["ba"], ctrl["control_color_histogram"]["oof"]["seed_avg"]["ba"]
-        lines.append(f"- **Same architecture, different weights** (unpaired point estimates, OOF BA): pathology pretraining (Hibou-L) "
+        lines.append(f"- **Same size, different weights** (unpaired point estimates, OOF BA; DINOv2-L also differs in its MLP block): pathology pretraining (Hibou-L) "
                      f"is {100 * (hib - nat):.1f} pt above natural-image pretraining (DINOv2-L), which is {100 * (nat - rnd):.1f} pt above "
                      f"random weights. Random-weight features score close to the colour histogram ({rnd:.3f} vs. {col:.3f}), consistent "
                      "with them carrying mostly colour and texture statistics (not tested directly).")
@@ -111,21 +158,21 @@ def render_stage_a() -> str | None:
         hc = wilds["hospital_check"]
         lines += [
             "## Camelyon17-WILDS preparation (`results/wilds_data.json`; no predictions yet)",
-            "- **Source:** the official CodaLab download failed on 2026-11-01 because its TLS certificate had expired. The data come from the Hugging Face parquet mirror `wltjr1007/Camelyon17-WILDS`.",
+            "- **Source:** the official CodaLab download failed on 2026-11-01 because its TLS certificate had expired. The data come from the Hugging Face parquet mirror "
+            f"`wltjr1007/Camelyon17-WILDS` (revision `{MIRROR_REVISION[:7]}`).",
             f"- **Count check:** train/val/test sizes match the WILDS paper "
             f"({wilds['train_matches_paper']}/{wilds['val_matches_paper']}/{wilds['test_matches_paper']}); {wilds['n_slides']} slides.",
             f"- **Fixed subsample:** ≤1,000 patches per slide, seed 0, {sum(wilds['subsample_per_center'].values()):,} patches.",
             "- **Hospital check** (L1 distance of mean colour histograms):",
             f"  - The assumed RUMC/UMCU split of PCam slides is far more separated ({hc['pcam_assumed_hospital_split_l1']:.2f}) than a random slide split ({hc['pcam_random_slide_split_l1']:.2f}), which supports the slide-numbering assumption.",
-            f"  - WILDS centre 2 (the official WILDS *test* hospital) is closest to UMCU ({hc['l1_distance_to_pcam_hospital']['2']['UMCU']:.2f} vs. {hc['l1_distance_to_pcam_hospital']['2']['RUMC']:.2f}). It is therefore a Camelyon16 source hospital, not out-of-distribution for PCam-trained models.",
-            "  - The pre-registered primary OOD pool is centres 0, 1, 4, reported as CWZ, RST, LPON (arXiv:2404.11161 v1). This mapping is uncertain: "
-            "centres 0, 3 and 4 share one scanner ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373), §4.1), which with the per-hospital scanners in "
-            "[Litjens et al. 2018](https://academic.oup.com/gigascience/article/7/6/giy065/5026175) places RUMC, a Camelyon16 hospital, among centres 0, 3, 4. "
-            "The colour check cannot separate them. The pool is re-examined and logged before WILDS is unsealed.",
+            f"  - WILDS centre 2 (the official WILDS *test* hospital) is closest to UMCU ({hc['l1_distance_to_pcam_hospital']['2']['UMCU']:.2f} vs. {hc['l1_distance_to_pcam_hospital']['2']['RUMC']:.2f}), "
+            "so it is most likely UMCU, a Camelyon16 source hospital, and not out-of-distribution for PCam-trained models.",
+            "  - " + WILDS_POOL_MD,
             "",
         ]
     lines += [
         "## Learnings",
+        "*Timings and rates are approximate observations from the (uncommitted) run logs.*",
         "- **HF login token.** Overriding `HF_HOME` to move the model cache hid the stored Hugging Face login token, and licence-accepted models returned 401. Use `HF_HUB_CACHE` instead.",
         "- **Hibou-L without remote code.** Hibou's custom `Dinov2ModelWithRegisters` maps cleanly onto transformers 5's native `Dinov2WithRegistersModel`, so it runs without remote code. The fp32 outputs are identical.",
         "- **`hf download` reliability.** The `hf download` CLI silently skipped some repositories; `snapshot_download` from Python was reliable.",
@@ -138,8 +185,8 @@ def render_stage_a() -> str | None:
 
 # Static facts about each network, with sources (model cards / papers); metrics are filled from results.
 NETWORKS = [
-    ("hibou_l", "Hibou-L", "ViT-L/14 + 4 registers, 304M", "DINOv2 self-supervised (student-teacher distillation, masked tokens)",
-     "1.2B tiles from 936k H&E + 202k non-H&E private slides", "https://arxiv.org/abs/2406.05074"),
+    ("hibou_l", "Hibou-L", "ViT-L/14 + 4 registers, SwiGLU, 304M (model card)", "DINOv2 self-supervised (student-teacher distillation, masked tokens)",
+     "1.2B patches from 936k H&E + 202k non-H&E private slides", "https://arxiv.org/abs/2406.05074, https://huggingface.co/histai/hibou-L"),
     ("hibou_b", "Hibou-B", "ViT-B/14 + 4 registers, 86M", "DINOv2", "512M tiles, same private data as Hibou-L", "https://arxiv.org/abs/2406.05074"),
     ("prov_gigapath", "Prov-GigaPath (tile)", "ViT-g/14, ~1.1B", "DINOv2", "1.3B tiles, 171k Providence slides", "https://doi.org/10.1038/s41586-024-07441-w"),
     ("h_optimus_0", "H-optimus-0", "ViT-g/14 + 4 registers, 1.1B", "DINOv2-style SSL", "proprietary, >500k slides", "https://huggingface.co/bioptimus/H-optimus-0"),
@@ -149,8 +196,9 @@ NETWORKS = [
     ("openmidnight", "OpenMidnight-1.1", "ViT-g/14 + 4 registers", "DINOv2-style SSL", "not stated on card", "https://huggingface.co/medarc/OpenMidnight-1.1"),
     ("phikon", "Phikon", "ViT-B/16, 86M", "iBOT", "TCGA tiles", "https://huggingface.co/owkin/phikon"),
     ("phikon_v2", "Phikon-v2", "ViT-L/16, 303M", "DINOv2", "TCGA, CPTAC, GTEx, TCIA (public)", "https://huggingface.co/owkin/phikon-v2"),
-    ("dinov2_reg_l", "DINOv2-L (control)", "ViT-L/14 + 4 registers, 304M", "DINOv2", "LVD-142M natural images", "https://arxiv.org/abs/2309.16588"),
-    ("random_vitl_reg4", "Random ViT-L (control)", "ViT-L/14 + 4 registers, 304M", "none (random init)", "none", "—"),
+    ("dinov2_reg_l", "DINOv2-L (control)", "ViT-L/14 + 4 registers, standard MLP, 304M", "DINOv2", "LVD-142M natural images",
+     "https://arxiv.org/abs/2304.07193, https://arxiv.org/abs/2309.16588"),
+    ("random_vitl_reg4", "Random ViT-L (control)", "Hibou-L's config (ViT-L/14 + 4 registers, SwiGLU), 304M", "none (random init)", "none", "—"),
 ]
 
 GLOSSARY = [
@@ -179,17 +227,17 @@ GLOSSARY = [
 # Classifiers trained here: (arm, plain-language description, trainable part, algorithm/objective, data/curriculum).
 TRAINED = [
     ("S0_hibou_l_cls_linear", "The original: Hibou-L's summary vector of a patch fed to one weighted sum",
-     "linear head (1,025 weights); Hibou-L frozen", "AdamW, binary cross-entropy, 12,500 steps", "all 216 train slides; no curriculum"),
+     "linear head (1,025 weights); Hibou-L frozen", "AdamW, binary cross-entropy, 12,500 steps", "all train slides; no curriculum"),
     ("S3b_oof_label_cleaning", "The original, retrained after removing patches whose label looked wrong",
      "linear head; Hibou-L frozen", "as above", "train minus patches whose out-of-fold prediction is more than 0.9 away from the label"),
     ("S5_lora", "Best model: Hibou-L itself slightly adjusted for this task",
      "LoRA adapters (rank 16) in all 24 attention blocks + head", "AdamW with warm-up + cosine schedule, BCE, EMA of weights",
      "folds 1–4, cleaned; two stages: linear probe first, then fine-tuning (LP-FT); rotations/flips + stain jitter"),
-    ("H4_aug_control", "Control: the original, trained on the same recoloured/rotated images LoRA saw",
-     "linear head; Hibou-L frozen", "AdamW, BCE", "folds 1–4, cleaned, one augmented view per patch"),
-    ("S0_scan_dinov2_reg_l", "Control: same architecture trained on everyday photos instead of pathology",
+    ("H4_aug_control", "Control: the original, trained on LoRA's training patches recoloured/rotated with LoRA's augmentation recipe",
+     "linear head; Hibou-L frozen", "AdamW, BCE", "folds 1–4, cleaned, one seeded random augmented view per patch (not LoRA's draws)"),
+    ("S0_scan_dinov2_reg_l", "Control: a network of Hibou-L's size pretrained on everyday photos instead of pathology",
      "linear head; DINOv2-L frozen", "AdamW, BCE", "all train slides"),
-    ("S0_scan_random_vitl_reg4", "Control: same architecture with random, untrained weights",
+    ("S0_scan_random_vitl_reg4", "Control: Hibou-L's architecture with random, untrained weights",
      "linear head; random ViT-L frozen", "AdamW, BCE", "all train slides"),
     ("control_color_histogram", "Control: uses only the colour distribution of the patch",
      "logistic regression on 96 colour bins", "L-BFGS, logistic loss", "all train slides"),
@@ -202,11 +250,13 @@ def render_summary() -> str:
     arms = {p.stem: json.loads(p.read_text()) for p in sorted((PATHS.results / "arms").glob("*.json"))}
     lad = _j("ladder.json") or {}
     steps = [json.loads(p.read_text()) for p in sorted((PATHS.results / "steps").glob("*.json"), key=lambda p: p.stat().st_mtime)]
+    dv = _j("data_verification.json") or {}
     lines = ["# Summary of all experiments", "",
-             "*Generated by `uv run python main.py report`; every number is read from `results/`.*", "",
+             "*Generated by `uv run python main.py report`; every result number is read from `results/`.*", "",
              "## In plain words",
-             "We take the best published AI model for spotting breast-cancer metastases in small lymph-node image patches "
-             "(Hibou-L) and test, one pre-announced idea at a time, whether it can be made more accurate. "
+             "We take the pathology foundation model with the best published frozen-probe score for spotting breast-cancer metastases "
+             "in small lymph-node image patches (Hibou-L, on the kaiko eva leaderboard) and test, one pre-announced idea at a time, "
+             "whether it can be made more accurate. "
              "Each idea is kept only if it clearly helps on training data split by slide *and* does not hurt on a separate "
              "validation set. The official test set is locked until the end so that we cannot fool ourselves.", "",
              "## Ladder so far", ""]
@@ -225,8 +275,9 @@ def render_summary() -> str:
         arm = arms.get("S0_hibou_l_cls_linear" if key == "hibou_l" else f"S0_scan_{key}")
         ba = _ba(arm["oof"]["seed_avg"]) if arm and "oof" in arm else "pending"
         lines.append(f"| {name} | {arch} | {obj} | {data} | {ba} | {src} |")
-    lines += ["", "## Classifiers trained in this study", "",
-              "All are evaluated on H&E-stained lymph-node patches (PCam, 96×96 px); \"valid BA\" is balanced accuracy on the 54 validation slides.", "",
+    lines += ["", f"## Main classifiers ({sum(a in arms for a, *_ in TRAINED)} of the {len(arms)} arms; every arm is in the README results table)", "",
+              "All are evaluated on H&E-stained lymph-node patches (PCam, 96×96 px); \"valid BA\" is balanced accuracy on the "
+              f"{dv.get('valid_slides', '')} validation slides.", "",
               "| Classifier | In plain words | What is trained | Algorithm and objective | Data and curriculum | Valid BA [95% CI] |",
               "|---|---|---|---|---|---|"]
     for arm, plain, trained, algo, data in TRAINED:
@@ -295,8 +346,9 @@ def _s2_learnings(steps: list[dict]) -> list[str]:
         m = step["comparisons"]["S2_mlp"]
         lines.append(f"- **The MLP is clearly worse** (Δ OOF {100 * m['oof']['delta_ba']:+.2f} pt, Δ valid "
                      f"{100 * m['valid']['delta_ba']:+.2f} pt). Untested hypothesis, consistent with the C result: inside "
-                     "CV there is no validation split for early stopping, so it trains the full 12,500 eva steps "
-                     "(≈15 epochs) and overfits the training slides. The MLP was not tuned (fixed width 512, dropout 0.1).")
+                     f"CV there is no validation split for early stopping, so it trains the full {EVA.max_steps:,} eva steps "
+                     f"(≈{EVA.max_steps * EVA.batch_size / (_j('data_verification.json')['train_n'] * (N_FOLDS - 1) / N_FOLDS):.0f} epochs) and overfits the training slides. "
+                     "The MLP was not tuned (fixed width 512, dropout 0.1).")
     return lines
 
 
@@ -318,7 +370,8 @@ def seed_offset() -> dict | None:
     """The single-seed effect on validation: the original recipe with seed 0 only (S3's identity-view arm)
     vs. the 5-seed original. One-seed linear-head arms carry this offset in their Δ valid vs. the original."""
     c, s0 = _j("comparisons/S3_no_tta_train64k_vs_baseline.json"), _arm("S0_hibou_l_cls_linear")
-    return {"cmp": c, "valid_seed_sd": s0["valid"]["seed_sd"]["ba"], "oof_seed_sd": s0["oof"]["seed_sd"]["ba"]} if c and s0 else None
+    return {"cmp": c, "valid_seed_sd": s0["valid"]["seed_sd"]["ba"], "oof_seed_sd": s0["oof"]["seed_sd"]["ba"],
+            "n_seeds": s0["valid"]["n_seeds"]} if c and s0 else None
 
 
 def review_findings() -> list[str]:
@@ -334,7 +387,9 @@ def review_findings() -> list[str]:
         out.append(f"Stain augmentation strength: σ = {h['sigma']} in scikit-image stain units shifts each stain by up to "
                    f"{h['beta_max_optical_density']:.2f} optical density; random draws change pixels by {h['mean_abs_pixel_change_random']:.0f}/255 "
                    f"on average, and the largest shift darkens mean RGB from {h['mean_rgb_clean']:.0f} to {h['mean_rgb_beta_plus_sigma']:.0f}. "
-                   "This is stronger than the name \"HED-light\" suggests (Tellez et al. do not state units). H4 is matched to LoRA as pre-registered, "
+                   f"Tellez et al.'s routine perturbs unscaled optical density, where the same σ shifts a stain by at most {h['sigma']} "
+                   f"(Tellez et al. 2018, App. B Eqs. 5–6), so the additive shift here is ln(10⁶) = {math.log(1e6):.1f}× theirs and stronger than "
+                   "the name \"HED-light\" (Tellez et al. 2019) suggests. H4 is matched to LoRA as pre-registered, "
                    "but its frozen head sees only recoloured patches and is scored on clean ones, which may widen the LoRA − H4 gap.")
     if s := _j("lora_sweep.json"):
         rungs = {}  # budget -> checkpoint BAs of the configs run at that budget
@@ -345,8 +400,9 @@ def review_findings() -> list[str]:
         out.append(f"LoRA sweep: the EMA (decay 0.999, no warm-up) still held most of the starting weights at the short rungs; "
                    f"{ties} of {len(first)} first-rung configs scored identically, and the final pick won by {100 * (top[0] - top[1]):.3f} pt "
                    "(about one of the 10k checkpoint patches), so the lr/rank choice is close to arbitrary.")
-    out.append("Also fixed: the LoRA adapter initialisation is now seeded, the LoRA head runs in fp32 (logits were bf16, which coarsens "
-               "NLL and ECE but not BA), predictions are order-safe for unsorted indices, and test images, labels and meta are guarded by the seal.")
+    out.append("Also fixed: the LoRA adapter initialisation is now seeded, the LoRA head runs in fp32 (logits were bf16; rounding keeps each "
+               "logit's sign, so BA at the 0.5 threshold is unaffected, but NLL and ECE are coarsened), predictions are order-safe for unsorted "
+               "indices, and test images, labels and meta are guarded by the seal.")
     return out
 
 
@@ -370,11 +426,11 @@ def ladder_findings() -> list[str]:
         out.append(f"LoRA fine-tuning raises validation BA from {s0['valid']['seed_avg']['ba']:.4f} to {s5['valid']['seed_avg']['ba']:.4f} "
                    f"(paired Δ {_pt(s5c, 'valid')}).")
     if h4c := _j("comparisons/S5_lora_vs_H4_aug_control.json"):
-        out.append(f"LoRA also beats a frozen head trained on the same images with the same augmentation (Δ valid {_pt(h4c, 'valid')}).")
+        out.append(f"LoRA also beats a frozen head trained on the same patches with the same augmentation recipe (Δ valid {_pt(h4c, 'valid')}).")
     models = [_arm(n) for n in CONTROL_MODELS]
     if all(models):
-        out.append(f"With Hibou-L's architecture, natural-image weights reach {models[0]['oof']['seed_avg']['ba']:.3f} and random weights "
-                   f"{models[1]['oof']['seed_avg']['ba']:.3f} OOF BA, against {s0['oof']['seed_avg']['ba']:.3f} for Hibou-L.")
+        out.append(f"A ViT-L/14-reg4 of Hibou-L's size reaches {models[0]['oof']['seed_avg']['ba']:.3f} OOF BA with natural-image (DINOv2) weights "
+                   f"and {models[1]['oof']['seed_avg']['ba']:.3f} with random weights, against {s0['oof']['seed_avg']['ba']:.3f} for Hibou-L.")
     return out
 
 
@@ -393,18 +449,19 @@ def _later_learnings() -> list[str]:
                      "([Hibou §3.1.1](https://arxiv.org/abs/2406.05074)); Hibou-L was also the most rotation-invariant FM by cosine "
                      "distance in [arXiv:2412.11938](https://arxiv.org/abs/2412.11938).")
     if so := seed_offset():
-        lines.append(f"- **Seed-count confounder in Δ valid vs the original.** The original's validation BA is a 5-seed average, "
+        lines.append(f"- **Seed-count confounder in Δ valid vs the original.** The original's validation BA is a {so['n_seeds']}-seed average, "
                      f"and its per-seed SD is {100 * so['valid_seed_sd']:.2f} pt on validation (vs. {100 * so['oof_seed_sd']:.2f} pt "
                      f"OOF). The same recipe with seed 0 only (`S3_no_tta_train64k`) scores {d(so['cmp'], 'valid')} on "
-                     "validation. One-seed linear-head arms (S1 f, S3, S3b, the S2 MLP) are compared with a 5-seed average, so "
-                     "their Δ valid vs the original includes a seed term of this size; logistic regression is deterministic. "
-                     "No adoption decision changes: S1 f failed the OOF test, "
-                     "S3 and S5b were decided against same-seed references, and S3b and S5 passed the gate despite the offset.")
+                     f"validation. One-seed linear-head arms (S1 f, S3, S3b, the S2 MLP, the H4 control) are compared with a "
+                     f"{so['n_seeds']}-seed average, so their Δ valid vs the original includes a seed term of this size; logistic regression is "
+                     "deterministic. No adoption decision changes: S1 f failed the OOF test, S3 and S5b were decided against same-seed "
+                     "references, S3b passed the gate despite the offset, and S5 was gated against the one-seed S3b.")
     if (c := cmp("S3b_oof_label_cleaning")) and (a := _arm("S3b_oof_label_cleaning")):
         fr = list(a["removed_fraction_per_fold"].values())
         lines.append(f"- **S3b label cleaning removed {100 * min(fr):.1f}–{100 * max(fr):.1f}% of training patches per fold** "
-                     f"({100 * a['removed_fraction_valid_refit']:.1f}% in the full refit). That is about ten times "
-                     "SelfClean's 0.2% PCam label-error estimate ([arXiv:2305.17048](https://arxiv.org/abs/2305.17048)); "
+                     f"({100 * a['removed_fraction_valid_refit']:.1f}% in the full refit). That is {min(fr) / SELFCLEAN_RATE:.0f}–"
+                     f"{max(fr) / SELFCLEAN_RATE:.0f} times SelfClean's PCam label-error estimate ({SELFCLEAN_PCAM_LABEL_ERRORS} of "
+                     f"{PCAM_SIZE:,} images, {100 * SELFCLEAN_RATE:.1f}%; [arXiv:2305.17048](https://arxiv.org/abs/2305.17048), App. L.1 Table 14); "
                      "if that estimate holds, most removed patches are hard but correctly labelled. "
                      f"Δ OOF {d(c, 'oof')} exceeds the pre-registered |Δ| ≤ 0.2 pt (prediction falsified). Δ valid "
                      f"{d(c, 'valid')} is indistinguishable from zero; the gate (point estimate ≥ 0, AUROC not lower) passed narrowly.")
@@ -413,7 +470,7 @@ def _later_learnings() -> list[str]:
         lines.append(f"- **S5 LoRA is the first change that clearly improves validation:** Δ valid {d(c, 'valid')}, "
                      f"p {c['valid']['p_signflip']:.2g}; Δ fold-0 {d(c, 'oof')} vs the original. Sweep winner lr "
                      f"{a['lora']['lr']}, rank {a['lora']['rank']}; {run['img_per_s']:.0f} img/s, so all 24 blocks were "
-                     f"kept (fallback threshold 20 img/s). Caveat: the EMA checkpoint (best of {len(run['history'])}) "
+                     f"kept (pre-registered fallback threshold 20 img/s). Caveat: the EMA checkpoint (best of {len(run['history'])}) "
                      "was chosen on a 10k subsample of fold 0, and the fold-0 comparison includes those patches; the "
                      "validation comparison has no such overlap.")
     if s := _j("steps/S5b_weight_space.json"):
@@ -425,10 +482,22 @@ def _later_learnings() -> list[str]:
                      "validation cannot test that, and the WILDS check is still sealed.")
     if (c := cmp("H4_aug_control")) and (h := _j("comparisons/S5_lora_vs_H4_aug_control.json")):
         lines.append(f"- **H4 control: a frozen Hibou-L head trained on LoRA's training patches under the same D4 + HED "
-                     f"augmentation.** It differs from the original by {d(c, 'oof')} on fold 0 and {d(c, 'valid')} on valid. "
+                     f"augmentation recipe (one seeded random view per patch, not LoRA's draws).** It differs from the original by {d(c, 'oof')} on fold 0 and {d(c, 'valid')} on valid. "
                      f"LoRA beats it by {d(h, 'oof')} on fold 0 (p {h['oof']['p_signflip']:.2g}) and {d(h, 'valid')} on valid "
                      f"(p {h['valid']['p_signflip']:.2g}). This is descriptive: the pre-registered H4 test uses the sealed test split.")
     return ["", "## S3–S5 learnings and the H4 control"] + lines if lines else []
+
+
+def _throughput_learning() -> list[str]:
+    """LoRA throughput and epoch time, from the S5 run record and the training-set size in lora_mask_audit.json."""
+    a, m = _arm("S5_lora"), _j("lora_mask_audit.json")
+    if not (a and m):
+        return []
+    ips = next(iter(a["lora"]["runs"].values()))["img_per_s"]
+    n = m["lora_train_candidates"] - m["dropped_by_used_mask"]  # folds 1-4 minus the cleaning mask the run used
+    return [f"- **LoRA throughput.** All 24 blocks with rank {a['lora']['rank']}, gradient checkpointing and micro-batch 64 ran at "
+            f"{ips:.1f} img/s, below the planned 40–60 but above the pre-registered 20 img/s fallback threshold, so one epoch of the "
+            f"{n:,} cleaned fold 1–4 patches took {n / ips / 3600:.1f} h."]
 
 
 def render_ladder() -> str | None:
@@ -466,9 +535,11 @@ def render_ladder() -> str | None:
     if rf := review_findings():
         lines += ["", "## Code-review findings on S5 and H4 (fixed in code; these results predate the fixes)"] + [f"- {x}" for x in rf]
     lines += ["", "## Notes",
-              "- **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the +5 pp averaged over weaker models in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.",
+              "- **Predictions written before results** (pre-registration): CLS+mean ≈ CLS for Hibou-L; multi-layer features gain far less than the "
+              "+5 pp averaged over 9 natural-image ViTs in arXiv:2601.09322; D4 TTA ≤ 0.3 pt; label cleaning ≤ 0.2 pt.",
               "- **Negative results** are kept and reported like positive ones.", "",
               "## Engineering learnings",
+              "*Timings marked \"run log\" are approximate observations from the (uncommitted) logs.*",
               "- **Label-cleaning mask after LoRA was adopted.** S5b first crashed with an `IndexError`: once `S5_lora` became the "
               "Hibou-L incumbent, the cleaning mask was looked up through its predictions, which cover fold 0 only. S3b now records the "
               "arm whose full-train OOF predictions define the mask (`clean_source`). The restored mask reproduces S5's training set "
@@ -476,10 +547,9 @@ def render_ladder() -> str | None:
               "- **Stale code in the release watcher.** The watcher called `release()` in-process, so it kept using the report code "
               "imported when it started and overwrote later report edits (the S2 learnings, the seed-count note). Each release now runs "
               "in a fresh `main.py release` process.",
-              "- **LoRA throughput.** All 24 blocks with rank 16, gradient checkpointing and micro-batch 64 ran at about 26 img/s, below "
-              "the planned 40–60 but above the 20 img/s fallback threshold, so one epoch of folds 1–4 took about 2 h.",
-              "- **Training images in RAM.** Random HDF5 reads from disk (about 1.4 s per 64-patch batch) starved the GPU; loading train "
-              "into memory once (about 100 s) fixed it.", ""]
+              *_throughput_learning(),
+              "- **Training images in RAM.** Random HDF5 reads from disk (about 1.4 s per 64-patch batch, run log) starved the GPU; loading train "
+              "into memory once (about 100 s, run log) fixed it.", ""]
     return "\n".join(lines)
 
 

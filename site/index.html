@@ -47,8 +47,9 @@
 <body>
 <main>
   <h1>Hill-climbing Hibou-L on PatchCamelyon</h1>
-  <p>A pre-registered attempt to improve <a href="https://huggingface.co/histai/hibou-L">Hibou-L</a>, the best
-    published pathology foundation model on the official PCam test split, one evidence-backed step at a time.
+  <p>A pre-registered attempt to improve <a href="https://huggingface.co/histai/hibou-L">Hibou-L</a>, the pathology
+    foundation model with the best published frozen-probe score on the official PCam test split
+    (<a href="https://kaiko-ai.github.io/eva/main/leaderboards/">kaiko eva leaderboard</a>), one evidence-backed step at a time.
     Every step is chosen by slide-grouped cross-validation on train and gated on validation. The test split stays sealed until
     the ladder is frozen. Intervals are 95% slide-cluster bootstrap CIs.</p>
   <div class="links">
@@ -113,9 +114,9 @@ fetch("data/results.json").then(r => r.json()).then(d => {
   const tiles = document.getElementById("tiles");
   const tile = (v, l) => { const t = el("div"); t.className = "tile"; t.append(el("div", v), el("div", l));
     t.firstChild.className = "v"; t.lastChild.className = "l"; tiles.append(t); };
-  if (d.gate) tile(fmt(d.gate.valid_ba_seed_mean), `Reproduced eva Hibou-L valid BA (published 0.939): ${d.gate.pass ? "pass" : "fail"}`);
+  if (d.gate) tile(fmt(d.gate.valid_ba_seed_mean), `Reproduced eva Hibou-L valid BA (published ${d.gate.target}): ${d.gate.pass ? "pass" : "fail"}`);
   const s0 = d.arms["S0_hibou_l_cls_linear"];
-  if (s0) tile(fmt(s0.oof.ba), "S0 incumbent, train OOF BA");
+  if (s0) tile(fmt(s0.oof.ba), "Original Hibou-L probe (S0), train OOF BA");
   const best = d.ladder && (d.ladder.hibou_incumbent || d.ladder.incumbent);
   if (s0 && best && best !== "S0_hibou_l_cls_linear" && d.arms[best])
     tile(fmt(d.arms[best].valid.ba), `Best pipeline so far (${best}), valid BA; original ${fmt(s0.valid.ba)}`);

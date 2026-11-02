@@ -109,7 +109,8 @@ def predict_states(model, states: list, split: str, idx) -> np.ndarray:
 # ----------------------------------------------------------------------------- S5 LoRA
 def sweep(ctx, sp: dict, head_state: dict) -> dict:
     """Successive halving over lr x rank on the sweep set: every config gets 1/4 epoch, the best half
-    1/2 epoch, the best of those a full epoch of the sweep set; scored on the fold-0 checkpoint subsample."""
+    1/2 epoch, and so on until one config is left (with the 6 configs of SWEEP: 6 -> 3 -> 1, so the
+    1-epoch rung is not reached); scored on the fold-0 checkpoint subsample."""
     images = PCamImages("train", in_memory=True)
     alive, results = list(SWEEP), {}
     for budget in (0.25, 0.5, 1.0):

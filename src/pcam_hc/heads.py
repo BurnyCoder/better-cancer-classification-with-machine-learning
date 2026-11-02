@@ -24,7 +24,7 @@ GPU_BUDGET = 2.5e9  # bytes of float16 features kept on the GPU; larger inputs s
 
 def _resident(X) -> torch.Tensor:
     """Float16 features on the GPU if they fit the budget, else in pinned CPU memory (batches are then
-    moved to the GPU on demand, so 16k-dimensional representations still train on an 8 GB card)."""
+    moved to the GPU on demand, so representations above the budget, e.g. S1 d's 8,192 features, still train on an 8 GB card)."""
     Xt = torch.as_tensor(np.asarray(X), dtype=torch.float16)
     if DEVICE == "cuda" and Xt.numel() * 2 <= GPU_BUDGET:
         return Xt.to(DEVICE)

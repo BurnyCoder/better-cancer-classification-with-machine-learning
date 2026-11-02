@@ -1,6 +1,6 @@
 # Better cancer classification: hill-climbing Hibou-L on PatchCamelyon
 
-This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406.05074), [weights](https://huggingface.co/histai/hibou-L)), the pathology foundation model with the best published frozen-probe score on the official **PatchCamelyon (PCam)** lymph-node metastasis test split ([kaiko eva leaderboard](https://github.com/kaiko-ai/eva)), and tries to make it more accurate. Every change is pre-registered and tested one step at a time.
+This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406.05074), [weights](https://huggingface.co/histai/hibou-L)), the pathology foundation model with the best published frozen-probe score on the official **PatchCamelyon (PCam)** lymph-node metastasis test split ([kaiko eva leaderboard](https://kaiko-ai.github.io/eva/main/leaderboards/)), and tries to make it more accurate. Every change is pre-registered and tested one step at a time.
 
 <!-- BEST:START -->
 ### 🏆 Best improved model so far: Hibou-L fine-tuned with LoRA (`S5_lora`)
@@ -11,7 +11,7 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 | Validation AUROC | 0.9823 | **0.9848** |
 
 - **Gain over the original:** +0.77 pt [+0.27, +1.41] balanced accuracy on the 54 validation slides, paired per-slide sign-flip p = 0.0081.
-- **Augmentation-matched control:** it beats a frozen Hibou-L head trained on the same augmented images by +0.99 pt [+0.58, +1.51], which suggests the gain comes from adapting the network rather than from the augmentation alone.
+- **Augmentation-matched control:** it beats a frozen Hibou-L head trained on the same patches with the same augmentation recipe by +0.99 pt [+0.58, +1.51], which suggests the gain comes from adapting the network rather than from the augmentation alone.
 - **Recipe:** LoRA r=16 lr=0.0001, all 24 blocks, LP-FT, D4+HED, drop-path 0.1, EMA. Weights: [Hugging Face](https://huggingface.co/BurnyCoder/pcam-hibou-hillclimb/tree/main/lora/S5_lora).
 - **Caveats:** validation only (the test split and the other-hospital check are still sealed); a single training run; trained before the code-review fixes listed in the [ladder report](reports/experiments/02_ladder_hibou_l.md).
 <!-- BEST:END -->
@@ -21,7 +21,7 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 ![Example outputs](reports/figures/examples.png)
 
 **How it works:**
-- **The model.** Hibou-L is a DINOv2 ViT-L/14 with 304M parameters, pretrained without labels on about 1M private slides.
+- **The model.** Hibou-L is a ViT-L/14 with 4 registers and a SwiGLU MLP block, 304M parameters ([model card](https://huggingface.co/histai/hibou-L)), pretrained with DINOv2 and no labels on 1.2B patches from about 1.14M private slides (936,441 H&E + 202,464 non-H&E; [Nechaev et al. 2024](https://arxiv.org/abs/2406.05074)).
 - **Features.** We turn every PCam patch into Hibou-L embeddings, train small classifier heads on them, and then try ideas transferred from neighbouring work:
   - features from intermediate layers and from the patch centre ([DINOv2 linear eval](https://github.com/facebookresearch/dinov2), [multi-layer probing](https://arxiv.org/abs/2601.09322));
   - averaging predictions over rotations and flips, as in test-time augmentation on Kaggle's PCam data ([Jaiswal et al. 2019](https://arxiv.org/abs/1906.09587));
@@ -31,19 +31,19 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 - **Selection.** Each idea is kept only if it wins on cross-validation over training *slides* and does not hurt on the validation split.
 - **Sealed test.** The official test split is locked in code until the whole procedure is frozen, and is then scored once.
 
-**Why.** Finding metastases in sentinel lymph nodes is a routine, labour-intensive step in breast-cancer staging ([Camelyon16](https://jamanetwork.com/journals/jama/fullarticle/2665774)). Foundation models are usually compared with a frozen backbone and a linear probe ([kaiko eva leaderboard](https://github.com/kaiko-ai/eva)). Whether the many adaptation tricks reported elsewhere still help on top of the strongest model is unknown. Measuring that honestly needs slide-level statistics, because patches from one slide are correlated. It also needs a test split that nobody can tune on.
+**Why.** Finding metastases in sentinel lymph nodes is a routine, labour-intensive step in breast-cancer staging ([Camelyon16](https://jamanetwork.com/journals/jama/fullarticle/2665774)). Foundation models are usually compared with a frozen backbone and a linear probe ([kaiko eva leaderboard](https://kaiko-ai.github.io/eva/main/leaderboards/)). Whether the many adaptation tricks reported elsewhere still help on top of the strongest model is unknown. Measuring that honestly needs slide-level statistics, because patches from one slide are correlated. It also needs a test split that nobody can tune on.
 
 ![Pipeline](reports/figures/pipeline.png)
 
 ## Highlights
 <!-- HIGHLIGHTS:START -->
-- ✅ **Exact reproduction.** Our Hibou-L probe scores **0.9394 ± 0.0007** validation balanced accuracy (BA; 5 seeds), against the published **0.939** ([eva](https://github.com/kaiko-ai/eva)). Our remote-code-free model matches Hibou's own code to a cosine of 1.000000.
-- ✅ **Incumbent under cross-validation** over 216 training slides: OOF BA 0.950 (95% CI 0.937–0.960); validation 0.937 (95% CI 0.889–0.962).
+- ✅ **Exact reproduction.** Our Hibou-L probe scores **0.9394 ± 0.0007** validation balanced accuracy (BA; 5 seeds), against the published **0.939** ([eva leaderboard](https://kaiko-ai.github.io/eva/main/leaderboards/)). Our remote-code-free model matches Hibou's own code to a mean cosine of 1.000000 (fp32, 256 validation patches).
+- ✅ **The original Hibou-L probe under cross-validation** over 216 training slides: OOF BA 0.950 (95% CI 0.937–0.960); validation 0.937 (95% CI 0.889–0.962).
 - ✅ **Controls behave as expected.** Shuffled labels: 0.520 (chance). Colour histogram only: 0.787 (95% CI 0.758–0.811). Colour carries signal, but far less than Hibou-L.
-- 📈 **Improvement ladder and controls** (validation and cross-validation; test still sealed): Of 6 decided ladder steps, 2 were adopted (`S3b_label_cleaning`, `S5_lora`). No frozen-feature classifier has a validation gain whose 95% CI excludes zero (largest: +0.01 pt [-0.76, +0.40], `S3b_oof_label_cleaning`). LoRA fine-tuning raises validation BA from 0.9367 to 0.9444 (paired Δ +0.77 pt [+0.27, +1.41]). LoRA also beats a frozen head trained on the same images with the same augmentation (Δ valid +0.99 pt [+0.58, +1.51]). With Hibou-L's architecture, natural-image weights reach 0.880 and random weights 0.797 OOF BA, against 0.950 for Hibou-L.
-- ⚠️ **Data leak found in PCam.** 33 distinct test images are pixel-identical to train images. All come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, at identical slide coordinates, which indicates a duplicate scan. Secondary sources (the eva documentation) report a duplicate CAMELYON16 test slide removed from the official release; PCam still contains test_049. Every test result will also be reported without it (decided while test was sealed).
+- 📈 **Improvement ladder and controls** (validation and cross-validation; test still sealed): Of 6 decided ladder steps, 2 were adopted (`S3b_label_cleaning`, `S5_lora`). No frozen-feature classifier has a validation gain whose 95% CI excludes zero (largest: +0.01 pt [-0.76, +0.40], `S3b_oof_label_cleaning`). LoRA fine-tuning raises validation BA from 0.9367 to 0.9444 (paired Δ +0.77 pt [+0.27, +1.41]). LoRA also beats a frozen head trained on the same patches with the same augmentation recipe (Δ valid +0.99 pt [+0.58, +1.51]). A ViT-L/14-reg4 of Hibou-L's size reaches 0.880 OOF BA with natural-image (DINOv2) weights and 0.797 with random weights, against 0.950 for Hibou-L.
+- ⚠️ **Data leak found in PCam.** 33 distinct test images are pixel-identical to train images. All come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, all at identical slide coordinates, which indicates a duplicate scan. The official [CAMELYON16 README](https://camelyon-dataset.s3.amazonaws.com/CAMELYON16/README.md) lists test_049 as a duplicate slide intentionally removed from the data set; PCam still contains it (443 test patches). Every test result will also be reported without it (decided while test was sealed).
 - ⚠️ **Validation split is small.** It has 54 slides, 22 with tumour, so its CIs are 3.1× wider than the train CV ones. Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.
-- ⚠️ **The official Camelyon17-WILDS test hospital is not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 0.69 vs. 1.68 to RUMC). The pre-registered out-of-hospital pool is centres 0, 1 and 4 (reported as CWZ, RST, LPON), but scanner metadata ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373)) suggest RUMC may be among centres 0, 3, 4; the pool is re-examined before WILDS is unsealed.
+- ⚠️ **The official Camelyon17-WILDS test hospital is most likely not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 0.69 vs. 1.68 to RUMC). The planned out-of-hospital pool is centres 0, 1 and 4, read as CWZ, RST and LPON from [arXiv:2404.11161v1](https://arxiv.org/abs/2404.11161v1) §2.1; it is logged as an open issue in the deviations log (the pre-registration only excludes RUMC and UMCU). Scanner metadata contradict that reading: centres 0, 3 and 4 share one scanner ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373), §4.1), and RUMC, CWZ and RST slides were scanned on one 3DHistech scanner ([Litjens et al. 2018](https://academic.oup.com/gigascience/article/7/6/giy065/5026175)), which puts RUMC, a Camelyon16 hospital, among centres 0, 3 and 4. The colour check does not separate those three. The pool is re-decided and logged before WILDS is unsealed.
 - **Data:** train 262,144 / valid 32,768 / test 32,768 patches from 216 / 54 / 129 slides; no slide is shared between splits.
 <!-- HIGHLIGHTS:END -->
 
@@ -67,30 +67,30 @@ Every number below is generated by `uv run python main.py report` from `results/
 <!-- RESULTS:START -->
 H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.939 (pre-registered gate ±0.010) → **pass**.
 
-| Arm | Backbone(s) | Head | Dim | OOF BA [95% CI] | OOF patches | Valid BA [95% CI] | Valid BA seed SD | Valid AUROC | Publishable |
-|---|---|---|---|---|---|---|---|---|---|
-| `control_color_histogram` | — | logreg | 96 | 0.7870 [0.7580, 0.8106] | all train | 0.8098 [0.7530, 0.8472] | 0.0000 | 0.8923 | yes |
-| `control_majority` | — | — | — | — | — | 0.5000 [0.5000, 0.5000] | 0.0000 | 0.5000 | yes |
-| `control_shuffled_labels` | Hibou-L | linear | 1024 | 0.5204 [0.4935, 0.5457] | all train | 0.4731 [0.4280, 0.5212] | 0.0471 | 0.4637 | yes |
-| `H4_aug_control` | Hibou-L | linear | — | 0.9731 [0.9568, 0.9823] | fold0 | 0.9344 [0.8853, 0.9627] | 0.0000 | 0.9780 | yes |
-| `S0_eva_exact_hibou_l` | Hibou-L | linear | 1024 | — | — | 0.9396 [0.8936, 0.9638] | 0.0007 | 0.9833 | yes |
-| `S0_hibou_l_cls_linear` | Hibou-L | linear | 1024 | 0.9498 [0.9366, 0.9600] | all train | 0.9367 [0.8888, 0.9617] | 0.0015 | 0.9823 | yes |
-| `S0_scan_dinov2_reg_l` | DINOv2-L (natural images) | linear | 1024 | 0.8797 [0.8622, 0.8940] | all train | 0.8682 [0.8103, 0.9023] | 0.0000 | 0.9448 | yes |
-| `S0_scan_random_vitl_reg4` | ViT-L random init | linear | 1024 | 0.7973 [0.7692, 0.8201] | all train | 0.7902 [0.7232, 0.8334] | 0.0000 | 0.8721 | yes |
-| `S1_b_cls24_mean24` | Hibou-L | linear | 2048 | 0.9491 [0.9353, 0.9598] | all train | 0.9353 [0.8830, 0.9607] | 0.0019 | 0.9816 | yes |
-| `S1_c_dinov2_last4` | Hibou-L | linear | 5120 | 0.9457 [0.9303, 0.9573] | all train | 0.9316 [0.8712, 0.9593] | 0.0025 | 0.9796 | yes |
-| `S1_d_spread_6_12_18_24` | Hibou-L | linear | 8192 | 0.9469 [0.9318, 0.9585] | all train | 0.9326 [0.8786, 0.9594] | 0.0020 | 0.9787 | yes |
-| `S1_e_best_plus_centre_tokens` | Hibou-L | linear | 2048 | 0.9496 [0.9361, 0.9599] | all train | 0.9352 [0.8839, 0.9608] | 0.0017 | 0.9817 | yes |
-| `S1_f_best_plus_centre_view` | Hibou-L | linear | 2048 | 0.9497 [0.9362, 0.9599] | all train | 0.9354 [0.8889, 0.9609] | 0.0000 | 0.9818 | yes |
-| `S2_logreg` | Hibou-L | logreg | 1024 | 0.9510 [0.9378, 0.9610] | all train | 0.9365 [0.8886, 0.9618] | 0.0000 | 0.9827 | yes |
-| `S2_mlp` | Hibou-L | mlp | 1024 | 0.9312 [0.9112, 0.9462] | all train | 0.9054 [0.8227, 0.9423] | 0.0000 | 0.9741 | yes |
-| `S3_d4_tta` | Hibou-L | linear | 1024 | 0.9522 [0.9396, 0.9617] | train64k | 0.9343 [0.8836, 0.9604] | 0.0000 | 0.9823 | yes |
-| `S3_no_tta_train64k` | Hibou-L | linear | 1024 | 0.9517 [0.9391, 0.9615] | train64k | 0.9352 [0.8854, 0.9612] | 0.0000 | 0.9822 | yes |
-| `S3b_oof_label_cleaning` | Hibou-L | linear | 1024 | 0.9525 [0.9394, 0.9624] | all train | 0.9368 [0.8908, 0.9636] | 0.0000 | 0.9833 | yes |
-| `S5_lora` | Hibou-L | lora | — | 0.9798 [0.9654, 0.9883] | fold0 | 0.9444 [0.8962, 0.9695] | 0.0000 | 0.9848 | yes |
-| `S5b_wise_0.25` | Hibou-L | lora | — | 0.9782 [0.9638, 0.9872] | fold0_minus_ckpt | 0.9388 [0.8914, 0.9663] | 0.0000 | 0.9827 | yes |
-| `S5b_wise_0.5` | Hibou-L | lora | — | 0.9789 [0.9644, 0.9879] | fold0_minus_ckpt | 0.9416 [0.8935, 0.9681] | 0.0000 | 0.9837 | yes |
-| `S5b_wise_0.75` | Hibou-L | lora | — | 0.9798 [0.9655, 0.9885] | fold0_minus_ckpt | 0.9427 [0.8945, 0.9686] | 0.0000 | 0.9843 | yes |
+| Arm | Backbone(s) | Head | Dim | OOF BA [95% CI] | OOF patches | Valid BA [95% CI] | Seeds | Valid BA seed SD | Valid AUROC | Publishable |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `control_color_histogram` | — | logreg | 96 | 0.7870 [0.7580, 0.8106] | all train | 0.8098 [0.7530, 0.8472] | 1 | — | 0.8923 | yes |
+| `control_majority` | — | — | — | — | — | 0.5000 [0.5000, 0.5000] | 1 | — | 0.5000 | yes |
+| `control_shuffled_labels` | Hibou-L | linear | 1024 | 0.5204 [0.4935, 0.5457] | all train | 0.4731 [0.4280, 0.5212] | 5 | 0.0471 | 0.4637 | yes |
+| `H4_aug_control` | Hibou-L | linear | — | 0.9731 [0.9568, 0.9823] | fold0 | 0.9344 [0.8853, 0.9627] | 1 | — | 0.9780 | yes |
+| `S0_eva_exact_hibou_l` | Hibou-L | linear | 1024 | — | — | 0.9396 [0.8936, 0.9638] | 5 | 0.0007 | 0.9833 | yes |
+| `S0_hibou_l_cls_linear` | Hibou-L | linear | 1024 | 0.9498 [0.9366, 0.9600] | all train | 0.9367 [0.8888, 0.9617] | 5 | 0.0015 | 0.9823 | yes |
+| `S0_scan_dinov2_reg_l` | DINOv2-L (natural images) | linear | 1024 | 0.8797 [0.8622, 0.8940] | all train | 0.8682 [0.8103, 0.9023] | 1 | — | 0.9448 | yes |
+| `S0_scan_random_vitl_reg4` | ViT-L random init | linear | 1024 | 0.7973 [0.7692, 0.8201] | all train | 0.7902 [0.7232, 0.8334] | 1 | — | 0.8721 | yes |
+| `S1_b_cls24_mean24` | Hibou-L | linear | 2048 | 0.9491 [0.9353, 0.9598] | all train | 0.9353 [0.8830, 0.9607] | 5 | 0.0019 | 0.9816 | yes |
+| `S1_c_dinov2_last4` | Hibou-L | linear | 5120 | 0.9457 [0.9303, 0.9573] | all train | 0.9316 [0.8712, 0.9593] | 5 | 0.0025 | 0.9796 | yes |
+| `S1_d_spread_6_12_18_24` | Hibou-L | linear | 8192 | 0.9469 [0.9318, 0.9585] | all train | 0.9326 [0.8786, 0.9594] | 5 | 0.0020 | 0.9787 | yes |
+| `S1_e_best_plus_centre_tokens` | Hibou-L | linear | 2048 | 0.9496 [0.9361, 0.9599] | all train | 0.9352 [0.8839, 0.9608] | 5 | 0.0017 | 0.9817 | yes |
+| `S1_f_best_plus_centre_view` | Hibou-L | linear | 2048 | 0.9497 [0.9362, 0.9599] | all train | 0.9354 [0.8889, 0.9609] | 1 | — | 0.9818 | yes |
+| `S2_logreg` | Hibou-L | logreg | 1024 | 0.9510 [0.9378, 0.9610] | all train | 0.9365 [0.8886, 0.9618] | 1 | — | 0.9827 | yes |
+| `S2_mlp` | Hibou-L | mlp | 1024 | 0.9312 [0.9112, 0.9462] | all train | 0.9054 [0.8227, 0.9423] | 1 | — | 0.9741 | yes |
+| `S3_d4_tta` | Hibou-L | linear | 1024 | 0.9522 [0.9396, 0.9617] | train64k | 0.9343 [0.8836, 0.9604] | 1 | — | 0.9823 | yes |
+| `S3_no_tta_train64k` | Hibou-L | linear | 1024 | 0.9517 [0.9391, 0.9615] | train64k | 0.9352 [0.8854, 0.9612] | 1 | — | 0.9822 | yes |
+| `S3b_oof_label_cleaning` | Hibou-L | linear | 1024 | 0.9525 [0.9394, 0.9624] | all train | 0.9368 [0.8908, 0.9636] | 1 | — | 0.9833 | yes |
+| `S5_lora` | Hibou-L | lora | — | 0.9798 [0.9654, 0.9883] | fold0 | 0.9444 [0.8962, 0.9695] | 1 | — | 0.9848 | yes |
+| `S5b_wise_0.25` | Hibou-L | lora | — | 0.9782 [0.9638, 0.9872] | fold0_minus_ckpt | 0.9388 [0.8914, 0.9663] | 1 | — | 0.9827 | yes |
+| `S5b_wise_0.5` | Hibou-L | lora | — | 0.9789 [0.9644, 0.9879] | fold0_minus_ckpt | 0.9416 [0.8935, 0.9681] | 1 | — | 0.9837 | yes |
+| `S5b_wise_0.75` | Hibou-L | lora | — | 0.9798 [0.9655, 0.9885] | fold0_minus_ckpt | 0.9427 [0.8945, 0.9686] | 1 | — | 0.9843 | yes |
 
 **Improvement ladder: every trained classifier vs. the original Hibou-L probe** (paired on the same patches; per-candidate p-values are descriptive, and adoption uses the pre-registered Holm + valid-gate rule):
 
@@ -125,9 +125,9 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 
 **In plain words.** The highlights above give the numbers.
 - **Reproduction.** Our re-implementation of the published Hibou-L probe matches the published validation score.
-- **What got better.** Fine-tuning Hibou-L with LoRA is the only change that clearly improves on the original on the validation slides. A frozen model trained on exactly the same augmented images does not improve, which suggests that the gain comes from adapting the network rather than from the augmentation (one run each; see the caveats in the ladder report).
+- **What got better.** Fine-tuning Hibou-L with LoRA is the only change that clearly improves on the original on the validation slides. A frozen model trained on the same patches with the same augmentation recipe does not improve, which suggests that the gain comes from adapting the network rather than from the augmentation (one run each; see the caveats in the ladder report).
 - **What did not help.** Reading features from other layers or the patch centre, other classifier heads, and averaging over rotated copies did not improve validation. Logistic regression won on cross-validation by a small margin, but not on validation. The MLP head made validation clearly worse, and rotation averaging slightly worse. Removing suspected mislabelled training patches helped on cross-validation but not measurably on validation. Scaling the LoRA update down (WiSE) made it worse.
-- **Controls.** A model trained on shuffled labels is at chance. A colour-only classifier is well above chance but far below Hibou-L. With the same architecture, natural-image weights are far below pathology weights, and random weights are about as good as colour alone.
+- **Controls.** A model trained on shuffled labels is at chance. A colour-only classifier is well above chance but far below Hibou-L. In a network of Hibou-L's size, natural-image weights are far below pathology weights, and random weights (in Hibou-L's exact architecture) are about as good as colour alone.
 - **Comparison with published models.** These no-training baselines are context only; the setups are not protocol-matched with later steps of this study.
 - **Not yet known.** Whether the LoRA gain holds on the official test split and on hospitals outside the training data: both stay sealed for now.
 
@@ -135,17 +135,17 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 
 | | |
 |---|---|
-| **Data** | PCam official splits ([Veeling 2018](https://arxiv.org/abs/1806.03962); [Zenodo 2546921](https://zenodo.org/records/2546921)). Patches are 96×96 px at about 0.97 µm/px; the label is tumour in the centre 32×32 px. Split sizes and slide counts are in the highlights; splits are slide-disjoint (verified). |
-| **Audit** | Exact pixel-hash duplicates were checked within and across splits. **33 test images from slide `camelyon16_test_049` are pixel-identical to train images from slide `camelyon16_train_tumor_036`, at the same coordinates, which indicates a duplicate scan.** A sensitivity analysis without that slide was added while the test split was still sealed. |
+| **Data** | PCam official splits ([Veeling 2018](https://arxiv.org/abs/1806.03962); [Zenodo 2546921](https://zenodo.org/records/2546921)). Patches are 96×96 px at about 0.97 µm/px (40× scans at 0.243 µm/px undersampled to 10×); the label is positive if the centre 32×32 px contains at least one tumour pixel ([PCam README](https://github.com/basveeling/pcam)). Split sizes and slide counts are in the highlights; splits are slide-disjoint (verified). |
+| **Audit** | Exact pixel-hash duplicates are counted within and across splits (`results/data_verification.json`). The train–test duplicates and the sensitivity analysis without the duplicated test slide are in the highlights and the [Stage A report](reports/experiments/01_stage_a_reproduction_controls.md). |
 | **Model** | Hibou-L (pinned revision), loaded into transformers' native `Dinov2WithRegistersModel` with no remote code. It is checked numerically against Hibou's own code (see highlights). Embeddings are computed in bf16. |
 | **Baseline protocol** | The eva PCam config exactly ([config](https://github.com/kaiko-ai/eva/blob/main/configs/vision/pathology/offline/classification/patch_camelyon.yaml)): resize to 224, CLS token, `nn.Linear` + BCE, AdamW, early stopping on valid BA, 5 seeds. |
 | **Selection protocol** | 5 slide-grouped folds of train, stratified by tumour slides. Out-of-fold predictions, fixed-step heads, full-train refits for validation. |
-| **Statistics** | Each arm's prediction is its seed-averaged probability. CIs come from a stratified slide-cluster bootstrap (BCa). Paired tests use a per-slide sign-flip test with Holm correction. |
+| **Statistics** | Each arm's prediction is its seed-averaged probability. CIs come from a stratified slide-cluster bootstrap ([Field & Welsh 2007](https://doi.org/10.1111/j.1467-9868.2007.00593.x)) with BCa intervals ([Efron 1987](https://doi.org/10.1080/01621459.1987.10478410)). Paired tests use a per-slide sign-flip test with Holm correction ([Holm 1979](https://www.jstor.org/stable/4615733)). |
 | **Ladder** | Pre-registered steps S1–S6, each adopted only if (1) its best candidate wins on OOF, (2) passes a Holm-corrected paired test and (3) does not reduce validation BA or AUROC. |
 | **Controls** | Shuffled labels, majority class, colour histogram, random-init ViT-L, DINOv2-L trained on natural images. |
-| **Baselines** | The reproduced eva probe; the best other foundation model (B*); a trained ConvNeXt-T; and published leaderboard and literature numbers, which need no training. |
+| **Baselines** | The reproduced eva probe and published leaderboard and literature numbers, which need no training. The best other foundation model (B*) and a trained ConvNeXt-T are postponed. |
 | **Confirmatory hypotheses** (sealed test) | **H1:** the final pipeline beats the reproduced baseline by ≥0.5 pt BA. **H1b:** it also beats B\*. **H4:** LoRA beats a frozen head trained with the same augmentation. **H6:** the gain transfers to the Camelyon17-WILDS hospitals that are not Camelyon16 sources. |
-| **Out-of-distribution data** | [Camelyon17-WILDS](https://wilds.stanford.edu/datasets/), ≤1,000 patches per slide. The official WILDS *test* hospital matches the colour signature of a Camelyon16 source hospital (UMCU), so the pre-registered primary out-of-distribution pool is centres 0, 1 and 4 (reported as CWZ, RST and LPON). Scanner metadata ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373)) suggest RUMC, a Camelyon16 hospital, may be among centres 0, 3 and 4, so the pool is re-examined before WILDS is unsealed. |
+| **Out-of-distribution data** | [Camelyon17-WILDS](https://wilds.stanford.edu/datasets/), ≤1,000 patches per slide. The pre-registration excludes the Camelyon16 hospitals (RUMC, UMCU); which WILDS centres those are is still open (see the highlights), and the pool is decided and logged before WILDS is unsealed. |
 
 ## What happens when you run it
 1. **`download`** fetches PCam from Zenodo, verifies the md5 sums and decompresses the HDF5 files.
@@ -161,12 +161,12 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 ## Architecture
 ```mermaid
 flowchart LR
-  A[PCam HDF5<br/>Zenodo 2546921] --> B[data.py<br/>slide-grouped folds, subsets,<br/>D4 / HED / centre views]
+  A[PCam HDF5<br/>Zenodo 2546921] --> B[data.py<br/>slide-grouped folds, subsets,<br/>D4 / centre views, leakage audit]
   B --> C[backbones.py<br/>Hibou-L + candidates,<br/>licence metadata]
   C --> D[embed.py<br/>multi-layer fp16 cache]
   D --> E[heads.py<br/>linear / logreg / MLP]
   D --> F[stage_b.py<br/>S1-S4: representation, head,<br/>TTA, label cleaning, fusion]
-  B --> G[finetune.py / stage_c.py<br/>LoRA, LP-FT, HED, EMA, WiSE, soups]
+  B --> G[finetune.py / stage_c.py<br/>LoRA, LP-FT, HED stain jitter, EMA, WiSE, soups]
   E --> F
   F --> H[ladder.py<br/>adoption rule]
   G --> H
@@ -182,9 +182,9 @@ flowchart LR
 - **Slide-aware statistics.** Stratified slide-cluster bootstrap (BCa), per-slide sign-flip tests, Holm correction, and seed-averaged arms.
 - **Leakage checks.** Slide disjointness, label/meta agreement, pixel-hash duplicates, and a shuffled-label control.
 - **Licence enforcement.** Publishing refuses any artifact derived from Virchow2 or Phikon (CC-BY-NC-ND / non-commercial); see [docs/licenses.md](docs/licenses.md).
-- **Resumable embedding cache** for 12 backbones; heads that stream wide features from pinned memory, so 16k-dimensional representations fit on an 8 GB GPU.
+- **Resumable embedding cache** for every backbone in the model pool (`results/model_pool.json`; Hibou-L and the two control backbones are embedded so far); heads that stream wide features from pinned memory, so multi-layer representations (up to 8,192 features trained here) fit on an 8 GB GPU.
 - **LoRA fine-tuning of Hibou-L.** PEFT adapters on all 24 attention blocks with LP-FT initialisation, D4 + HED stain augmentation, drop-path, EMA, a successive-halving lr × rank sweep and WiSE scaling. The adopted model is published on Hugging Face as safetensors with a rebuild config.
-- **Generated outputs.** One command regenerates every table and figure, the README blocks, the per-experiment reports, the site data and the paper. No number is typed by hand. This includes example outputs drawn by a fixed random rule and the LoRA training curves.
+- **Generated outputs.** One command regenerates every table and figure, the README blocks, the per-experiment reports, the site data and the paper. Every result number is read from `results/`; model facts and literature values are cited at their source. This includes example outputs drawn by a fixed random rule and the LoRA training curves.
 - **Per-classifier releases.** `release-watch` pushes every newly trained classifier with the regenerated paper, reports, README, site and Hugging Face artifacts.
 
 **Technologies:**
@@ -197,8 +197,8 @@ flowchart LR
 ## Setup
 Requirements:
 - Python 3.12 via [uv](https://docs.astral.sh/uv/), on Windows, Linux or WSL.
-- An NVIDIA GPU. Developed on an RTX 5070 Laptop, 8 GB.
-- About 60 GB of disk.
+- An NVIDIA GPU. Developed on the author's RTX 5070 Laptop GPU (8 GB).
+- About 80 GB of disk for what has run so far: PCam raw + HDF5 16 GB, the Hibou-L multi-layer embedding cache of train and valid 43 GB, the two control caches 2.4 GB, the WILDS mirror 12 GB, and model weights. The test-split and other-backbone caches add more.
 
 ```bash
 git clone https://github.com/BurnyCoder/better-cancer-classification-with-machine-learning
@@ -215,7 +215,7 @@ uv run pytest
 uv run python main.py download        # PCam from Zenodo, md5-verified
 uv run python main.py verify          # leakage checks
 uv run python main.py access          # freeze the candidate pool
-uv run python main.py embed --backbones hibou_l --splits train valid
+uv run python main.py embed --backbones hibou_l --splits train valid --views full center64   # center64 is S1 f's centre-crop view
 uv run python main.py stage-a --parts h2 s0 controls
 uv run python main.py published       # no-training baselines (eva leaderboard at a pinned commit + literature)
 uv run python main.py stage-b --parts s1 s2   # frozen-feature ladder: representation, head
@@ -231,8 +231,8 @@ uv run python main.py release --title "..."   # report + commit + PR + merge + H
 Reproducing the parity check against kaiko-eva is described in [docs/usage.md](docs/usage.md).
 
 ## Data, models and licences
-- **PCam:** CC0. The GitHub README lists the md5 sums of `valid_x` and `test_x` swapped; the Zenodo API checksums are used here.
-- **Camelyon17-WILDS:** CC0. Obtained from a Hugging Face mirror because the official CodaLab server's TLS certificate had expired; split sizes were checked against the WILDS paper.
+- **PCam:** CC0 per the [PCam README](https://github.com/basveeling/pcam); the Zenodo record lists MIT. The README lists the validation and test md5 sums swapped for all three file pairs (images, labels, meta CSVs); the Zenodo API checksums are used here.
+- **Camelyon17-WILDS:** CC0. Obtained from the Hugging Face mirror `wltjr1007/Camelyon17-WILDS` (revision `d784d53`) because the official CodaLab server's TLS certificate had expired when the data were fetched (2026-11-01); split sizes were checked against the WILDS paper.
 - **Models used under their own licences:**
   - Hibou-L/B, H-optimus-0, Prov-GigaPath, Virchow, OpenMidnight-1.1, DINOv2: Apache-2.0.
   - Midnight-12k: MIT.

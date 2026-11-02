@@ -1,7 +1,7 @@
 [project]
 name = "pcam-hc"
 version = "0.1.0"
-description = "Pre-registered hill-climbing of the Midnight-12k pathology foundation model on PatchCamelyon"
+description = "Pre-registered hill-climbing of the Hibou-L pathology foundation model on PatchCamelyon"
 readme = "README.md"
 authors = [
     { name = "BurnyCoder", email = "happymancz@email.cz" }

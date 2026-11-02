@@ -4,6 +4,7 @@
   "backbones": [],
   "publishable": true,
   "valid": {
+    "n_seeds": 1,
     "seed_mean": {
       "ba": 0.5,
       "auroc": 0.5,
@@ -13,15 +14,7 @@
       "ece": 0.0007077636629161388,
       "n": 32768.0
     },
-    "seed_sd": {
-      "ba": 0.0,
-      "auroc": 0.0,
-      "acc": 0.0,
-      "f1": 0.0,
-      "nll": 0.0,
-      "ece": 0.0,
-      "n": 0.0
-    },
+    "seed_sd": null,
     "seed_avg": {
       "ba": 0.5,
       "auroc": 0.5,

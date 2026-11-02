@@ -18,8 +18,9 @@ def balanced_accuracy(y: np.ndarray, pred: np.ndarray) -> float:
 
 
 def expected_calibration_error(y: np.ndarray, p: np.ndarray, n_bins: int = 15) -> float:
-    """ECE with equal-width confidence bins on the positive-class probability (Guo et al. 2017,
-    https://arxiv.org/abs/1706.04599): sum over bins of |mean(y) - mean(p)| weighted by bin size."""
+    """Binary calibration error with equal-width bins on the positive-class probability (cf. the top-label
+    ECE of Guo et al. 2017, https://arxiv.org/abs/1706.04599): sum over bins of |mean(y) - mean(p)| weighted
+    by bin size."""
     bins = np.minimum((np.asarray(p) * n_bins).astype(int), n_bins - 1)  # p=1.0 goes to last bin
     ece = 0.0
     for b in np.unique(bins):

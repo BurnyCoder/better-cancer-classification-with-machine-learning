@@ -17,6 +17,28 @@ log = logging.getLogger(__name__)
 REPO_ID = "BurnyCoder/pcam-hibou-hillclimb"
 COLLECTION_TITLE = "PCam hill-climbing of Hibou-L"
 LORA_ARM = "S5_lora"  # the fine-tuned model; its weights live in the LoRA checkpoint folder, not in heads/
+ARTIFACT_LICENSE = PROJECT_ROOT / "LICENSES" / "Apache-2.0.txt"  # https://www.apache.org/licenses/LICENSE-2.0.txt
+# (the repository's own code is MIT; the published heads and adapters are Apache-2.0, see docs/licenses.md)
+
+
+def lineage(records: list[dict]) -> list[str]:
+    """One line per backbone the published arms build on: source repo, pinned revision, licence, notice."""
+    out = []
+    for b in sorted({b for r in records for b in r["backbones"]}):
+        spec = REGISTRY[b]
+        what = "architecture config only, random weights" if spec.kind == "random_reg" else "frozen weights, not included"
+        out.append(f"`{b}`: [{spec.repo}](https://huggingface.co/{spec.repo}) at `{spec.revision[:7]}` ({what}; {spec.licence}). {spec.notice}")
+    return out
+
+
+def notice(records: list[dict]) -> str:
+    """NOTICE file: attribution for every upstream model and a statement of changes (Apache-2.0, section 4)."""
+    lines = ["PCam hill-climbing of Hibou-L: classification heads and LoRA adapters.",
+             "Copyright 2026 Libor Burian. Licensed under the Apache License, Version 2.0 (LICENSE).", "",
+             "Built on the following models, which are not redistributed here:",
+             *[f"- {line}" for line in lineage(records)], "",
+             "Changes: newly trained classification heads and LoRA adapters; no upstream weights are modified or included."]
+    return "\n".join(lines) + "\n"
 
 
 class LicenceError(RuntimeError):
@@ -31,9 +53,8 @@ def assert_publishable(record: dict) -> None:
 
 def model_card(records: list[dict]) -> str:
     """Card with attribution, licence notices and per-arm metrics read from the arm records."""
-    notices = sorted({REGISTRY[b].notice for r in records for b in r["backbones"]})
     rows = "\n".join(
-        f"| `{r['name']}` | {', '.join(r['backbones'])} | {r['valid']['seed_avg']['ba']:.4f} | "
+        f"| `{r['name']}` | {', '.join(r['backbones']) or '—'} | {r['valid']['seed_avg']['ba']:.4f} | "
         + (f"{r['oof']['seed_avg']['ba']:.4f} ({r.get('oof_subset', 'all train')}) |" if "oof" in r else "— |")
         for r in records)
     lora = next((r for r in records if r["name"] == LORA_ARM), None)
@@ -55,14 +76,15 @@ arbitrary. Its validation result is unaffected by the first issue. Details are i
 license: apache-2.0
 tags: [pathology, histopathology, patchcamelyon, hibou, linear-probe, lora]
 base_model: histai/hibou-L
-datasets: [1aurent/PatchCamelyon]
 ---
 
 # PCam hill-climbing of Hibou-L: heads and adapters
 
-Classification heads and LoRA adapters trained on top of the **Hibou-L** pathology foundation model
-([Nechaev et al. 2024](https://arxiv.org/abs/2406.05074)) for PatchCamelyon metastasis detection.
-They come from the pre-registered study at
+Classification heads and LoRA adapters for PatchCamelyon metastasis detection, trained on top of the **Hibou-L**
+pathology foundation model ([Nechaev et al. 2024](https://arxiv.org/abs/2406.05074)); the control heads use the other
+frozen backbones listed per arm and under "Licences and attribution". The data are the official PCam splits from
+[Zenodo record 2546921](https://zenodo.org/records/2546921) (CC0 per the [PCam README](https://github.com/basveeling/pcam);
+the Zenodo record lists MIT). They come from the pre-registered study at
 https://github.com/BurnyCoder/better-cancer-classification-with-machine-learning, where you will find the
 pre-registration, the code to rebuild every artifact, and all results with slide-level confidence intervals.
 The current paper release is included as `paper.pdf`.
@@ -77,13 +99,14 @@ The current paper release is included as `paper.pdf`.
 
 Each `heads/<arm>/seed<k>.pt` holds a `torch` state dict (`module`), the z-scoring `mu`/`sd` (or None), and
 the head `kind`. The input is the representation documented in the arm's JSON record (`arms/<arm>.json`).
-Train OOF BA is out-of-fold over all training slides, or over train fold 0 for the fine-tuned model and its H4 control.
+Train OOF BA is out-of-fold over the patch set in brackets: all training slides, the train-64k subset (S3), or train fold 0
+(the fine-tuned model and its H4 control).
 {lora_md}
 ## Licences and attribution
 - The base model weights are **not** included. Accept the Hibou-L licence on its Hugging Face page and
   download it yourself.
-{chr(10).join('- ' + n for n in notices)}
-- These derived artifacts are released under Apache-2.0. Changes: newly trained classification heads / LoRA adapters.
+{chr(10).join('- ' + n for n in lineage(records))}
+- These derived artifacts are released under Apache-2.0 (`LICENSE`, `NOTICE`). Changes: newly trained classification heads / LoRA adapters.
 """
 
 
@@ -105,7 +128,8 @@ def upload(arm_names: list[str], token=None) -> str:
     for rec in records:
         (staging / "arms" / f"{rec['name']}.json").write_text(json.dumps(rec, indent=2))
     (staging / "README.md").write_text(model_card(records), encoding="utf-8")
-    (staging / "LICENSE").write_text((PROJECT_ROOT / "LICENSE").read_text())
+    (staging / "LICENSE").write_text(ARTIFACT_LICENSE.read_text(), encoding="utf-8")
+    (staging / "NOTICE").write_text(notice(records), encoding="utf-8")
     paper = PROJECT_ROOT / "reports" / "paper" / "paper.pdf"
     if paper.exists():  # the current release of the paper travels with the artifacts
         (staging / "paper.pdf").write_bytes(paper.read_bytes())

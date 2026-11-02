@@ -5,7 +5,7 @@ they exist. Two kinds are recorded in results/published_baselines.json:
   * the kaiko eva leaderboard (frozen backbone + linear probe, balanced accuracy on PCam val and test),
     fetched from a pinned commit of https://github.com/kaiko-ai/eva so the numbers come from the source
     file rather than being typed in;
-  * literature results on the official PCam test split, each with its paper and table.
+  * literature results on PCam (each paper's own test protocol), each with its paper and table.
 """
 
 import csv
@@ -24,9 +24,9 @@ EVA_NAMES = {"histai_hibou_l": "Hibou-L", "mahmood_uni2_h": "UNI2-h", "prov_giga
              "owkin_phikon_v2": "Phikon-v2", "lunit_vits16": "Lunit ViT-S/16", "kaiko_vits8": "kaiko ViT-S/8"}
 ACCESSIBLE = {"Hibou-L", "Prov-GigaPath", "H-optimus-0", "Virchow2", "Midnight-12k", "Phikon", "Phikon-v2"}
 
-# Literature results on the official PCam test split (metric, value, source, location in source).
+# Literature results on PCam (metric, value, source, location in source); protocols differ from eva's.
 LITERATURE = [
-    {"model": "P4M-DenseNet (rotation-equivariant CNN, trained from scratch)", "metric": "accuracy", "value": 0.898,
+    {"model": "P4M-DenseNet (rotation-equivariant CNN; no pretraining reported)", "metric": "accuracy", "value": 0.898,
      "source": "https://arxiv.org/abs/1806.03962", "where": "Veeling et al. 2018, Table 1"},
     {"model": "P4M-DenseNet", "metric": "AUROC", "value": 0.963,
      "source": "https://arxiv.org/abs/1806.03962", "where": "Veeling et al. 2018, Table 1"},
@@ -35,11 +35,11 @@ LITERATURE = [
     {"model": "Hibou-B, SGD linear probe", "metric": "accuracy", "value": 0.946,
      "source": "https://arxiv.org/abs/2406.05074", "where": "Nechaev et al. 2024, Table 1"},
     {"model": "UNI, linear probe", "metric": "accuracy", "value": 0.9160,
-     "source": "https://arxiv.org/abs/2410.16038", "where": "Lee et al. 2024, PCam results"},
+     "source": "https://arxiv.org/abs/2410.16038", "where": "Lee et al. 2024, Table 3 (the PEFT column is LoRA)"},
     {"model": "UNI, full fine-tuning", "metric": "accuracy", "value": 0.9040,
-     "source": "https://arxiv.org/abs/2410.16038", "where": "Lee et al. 2024, PCam results"},
+     "source": "https://arxiv.org/abs/2410.16038", "where": "Lee et al. 2024, Table 3 (the PEFT column is LoRA)"},
     {"model": "UNI, LoRA", "metric": "accuracy", "value": 0.9424,
-     "source": "https://arxiv.org/abs/2410.16038", "where": "Lee et al. 2024, PCam results"},
+     "source": "https://arxiv.org/abs/2410.16038", "where": "Lee et al. 2024, Table 3 (the PEFT column is LoRA)"},
 ]
 
 

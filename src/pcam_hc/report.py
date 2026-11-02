@@ -85,7 +85,7 @@ def published_context_figure() -> None:
     ax.set_yticks(list(y), labels, color=INK)
     ax.set_xlabel("Balanced accuracy (frozen backbone + linear probe)", color=INK2)
     _style(ax)
-    ax.legend(frameon=False, fontsize=8, loc="upper left")
+    ax.legend(frameon=False, fontsize=8, loc="lower right")  # the lower right holds no points
     ax.set_title("Published no-training baselines (kaiko eva leaderboard); * = not in this study's model pool",
                  color=INK, fontsize=10, loc="left")
     fig.tight_layout()

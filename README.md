@@ -21,29 +21,29 @@ This project takes **Hibou-L** ([Nechaev et al. 2024](https://arxiv.org/abs/2406
 ![Example outputs](reports/figures/examples.png)
 
 **How it works:**
-- **The model.** Hibou-L is a ViT-L/14 with 4 registers and a SwiGLU MLP block, 304M parameters ([model card](https://huggingface.co/histai/hibou-L)), pretrained with DINOv2 and no labels on 1.2B patches from about 1.14M private slides (936,441 H&E + 202,464 non-H&E; [Nechaev et al. 2024](https://arxiv.org/abs/2406.05074)).
+- **The model.** Hibou-L is a ViT-L/14 with 4 registers and a SwiGLU MLP block ([config](https://huggingface.co/histai/hibou-L/blob/main/config.json)), about 304M parameters (303.7M in the [Hugging Face weights](https://huggingface.co/histai/hibou-L); neither the card nor the paper states a count), pretrained with DINOv2 and no labels on 1.2B patches from about 1.14M private slides (936,441 H&E + 202,464 non-H&E; [Nechaev et al. 2024](https://arxiv.org/abs/2406.05074)).
 - **Features.** We turn every PCam patch into Hibou-L embeddings, train small classifier heads on them, and then try ideas transferred from neighbouring work:
   - features from intermediate layers and from the patch centre ([DINOv2 linear eval](https://github.com/facebookresearch/dinov2), [multi-layer probing](https://arxiv.org/abs/2601.09322));
   - averaging predictions over rotations and flips, as in test-time augmentation on Kaggle's PCam data ([Jaiswal et al. 2019](https://arxiv.org/abs/1906.09587));
-  - removing likely mislabelled training patches, as in PANDA 1st place ([code](https://github.com/kentaroy47/Kaggle-PANDA-1st-place-solution));
-  - fusing several foundation models;
+  - removing likely mislabelled training patches, as in PANDA 1st place ([write-up](https://www.kaggle.com/c/prostate-cancer-grade-assessment/discussion/169143), [code](https://github.com/kentaroy47/Kaggle-PANDA-1st-place-solution));
+  - fusing several foundation models (greedy ensemble selection, [Caruana et al. 2004](https://doi.org/10.1145/1015330.1015432), and stacking);
   - LoRA fine-tuning ([Hu 2021](https://arxiv.org/abs/2106.09685), [Lee 2024](https://arxiv.org/abs/2410.16038)) with LP-FT ([Kumar 2022](https://arxiv.org/abs/2202.10054)), stain augmentation ([Tellez 2019](https://arxiv.org/abs/1902.06543)) and weight averaging ([WiSE-FT](https://arxiv.org/abs/2109.01903), [soups](https://arxiv.org/abs/2203.05482)).
 - **Selection.** Each idea is kept only if it wins on cross-validation over training *slides* and does not hurt on the validation split.
 - **Sealed test.** The official test split is locked in code until the whole procedure is frozen, and is then scored once.
 
-**Why.** Finding metastases in sentinel lymph nodes is a routine, labour-intensive step in breast-cancer staging ([Camelyon16](https://jamanetwork.com/journals/jama/fullarticle/2665774)). Foundation models are usually compared with a frozen backbone and a linear probe ([kaiko eva leaderboard](https://kaiko-ai.github.io/eva/main/leaderboards/)). Whether the many adaptation tricks reported elsewhere still help on top of the strongest model is unknown. Measuring that honestly needs slide-level statistics, because patches from one slide are correlated. It also needs a test split that nobody can tune on.
+**Why.** Checking sentinel lymph nodes for metastases is part of breast-cancer staging, and doing it by eye is tedious and time-consuming ([Ehteshami Bejnordi et al. 2017](https://jamanetwork.com/journals/jama/fullarticle/2665774)). Foundation models are usually compared with a frozen backbone and a linear probe ([kaiko eva leaderboard](https://kaiko-ai.github.io/eva/main/leaderboards/)). Whether the many adaptation tricks reported elsewhere still help on top of the strongest model is unknown. Measuring that honestly needs slide-level statistics, because patches from one slide are correlated. It also needs a test split that nobody can tune on.
 
 ![Pipeline](reports/figures/pipeline.png)
 
 ## Highlights
 <!-- HIGHLIGHTS:START -->
-- ✅ **Exact reproduction.** Our Hibou-L probe scores **0.9394 ± 0.0007** validation balanced accuracy (BA; 5 seeds), against the published **0.939** ([eva leaderboard](https://kaiko-ai.github.io/eva/main/leaderboards/)). Our remote-code-free model matches Hibou's own code to a mean cosine of 1.000000 (fp32, 256 validation patches).
+- ✅ **Reproduction to the published precision.** Our Hibou-L probe scores **0.9394 ± 0.0007** validation balanced accuracy (BA; 5 seeds), against the published **0.939** ([eva leaderboard](https://kaiko-ai.github.io/eva/main/leaderboards/)). Our remote-code-free model matches Hibou's own code to a mean cosine of 1.000000 (fp32, 256 validation patches).
 - ✅ **The original Hibou-L probe under cross-validation** over 216 training slides: OOF BA 0.950 (95% CI 0.937–0.960); validation 0.937 (95% CI 0.889–0.962).
 - ✅ **Controls behave as expected.** Shuffled labels: 0.520 (chance). Colour histogram only: 0.787 (95% CI 0.758–0.811). Colour carries signal, but far less than Hibou-L.
 - 📈 **Improvement ladder and controls** (validation and cross-validation; test still sealed): Of 6 decided ladder steps, 2 were adopted (`S3b_label_cleaning`, `S5_lora`). No frozen-feature classifier has a validation gain whose 95% CI excludes zero (largest: +0.01 pt [-0.76, +0.40], `S3b_oof_label_cleaning`). LoRA fine-tuning raises validation BA from 0.9367 to 0.9444 (paired Δ +0.77 pt [+0.27, +1.41]). LoRA also beats a frozen head trained on the same patches with the same augmentation recipe (Δ valid +0.99 pt [+0.58, +1.51]). A ViT-L/14-reg4 of Hibou-L's size reaches 0.880 OOF BA with natural-image (DINOv2) weights and 0.797 with random weights, against 0.950 for Hibou-L.
 - ⚠️ **Data leak found in PCam.** 33 distinct test images are pixel-identical to train images. All come from test slide `camelyon16_test_049` and train slide `camelyon16_train_tumor_036`, all at identical slide coordinates, which indicates a duplicate scan. The official [CAMELYON16 README](https://camelyon-dataset.s3.amazonaws.com/CAMELYON16/README.md) lists test_049 as a duplicate slide intentionally removed from the data set; PCam still contains it (443 test patches). Every test result will also be reported without it (decided while test was sealed).
-- ⚠️ **Validation split is small.** It has 54 slides, 22 with tumour, so its CIs are 3.1× wider than the train CV ones. Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.
-- ⚠️ **The official Camelyon17-WILDS test hospital is most likely not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 0.69 vs. 1.68 to RUMC). The planned out-of-hospital pool is centres 0, 1 and 4, read as CWZ, RST and LPON from [arXiv:2404.11161v1](https://arxiv.org/abs/2404.11161v1) §2.1; it is logged as an open issue in the deviations log (the pre-registration only excludes RUMC and UMCU). Scanner metadata contradict that reading: centres 0, 3 and 4 share one scanner ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373), §4.1), and RUMC, CWZ and RST slides were scanned on one 3DHistech scanner ([Litjens et al. 2018](https://academic.oup.com/gigascience/article/7/6/giy065/5026175)), which puts RUMC, a Camelyon16 hospital, among centres 0, 3 and 4. The colour check does not separate those three. The pool is re-decided and logged before WILDS is unsealed.
+- ⚠️ **Validation split is small.** It has 54 slides, 22 with tumour, so the original probe's validation CI is 3.1× wider than its train-CV CI. Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.
+- ⚠️ **The official Camelyon17-WILDS test hospital is most likely not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 0.69 vs. 1.68 to RUMC). The planned out-of-hospital pool is centres 0, 1 and 4, read as CWZ, RST and LPON from [arXiv:2404.11161v1](https://arxiv.org/abs/2404.11161v1) §2.1; it is logged as an open issue in the deviations log (the pre-registration only excludes RUMC and UMCU). The headers of the official CAMELYON17 slide files (`results/wilds_scanners.json`, node 0 of all 100 training patients) give centres 0, 1 and 3 one pixel size (0.2431 µm/px), centre 2 0.2262–0.2269 µm/px and centre 4 a Philips scanner. RUMC's 3DHistech scanner, which also scanned the CWZ and RST slides, gives 0.243 µm/px, UMCU's Hamamatsu 0.226 µm/px and LPON's scanner is a Philips ([Litjens et al. 2018](https://academic.oup.com/gigascience/article/7/6/giy065/5026175); [Ehteshami Bejnordi et al. 2017](https://jamanetwork.com/journals/jama/fullarticle/2665774)). So centre 2 is UMCU and centre 4 is LPON, the statement that centres 0, 3 and 4 share one scanner ([Tomar et al. 2024](https://arxiv.org/abs/2411.09373), §4.1) does not hold, and RUMC, a Camelyon16 hospital, is one of centres 0, 1 and 3. No source we found says which one, and the colour check does not separate them. The pool is re-decided and logged before WILDS is unsealed.
 - **Data:** train 262,144 / valid 32,768 / test 32,768 patches from 216 / 54 / 129 slides; no slide is shared between splits.
 <!-- HIGHLIGHTS:END -->
 
@@ -135,7 +135,7 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 
 | | |
 |---|---|
-| **Data** | PCam official splits ([Veeling 2018](https://arxiv.org/abs/1806.03962); [Zenodo 2546921](https://zenodo.org/records/2546921)). Patches are 96×96 px at about 0.97 µm/px (40× scans at 0.243 µm/px undersampled to 10×); the label is positive if the centre 32×32 px contains at least one tumour pixel ([PCam README](https://github.com/basveeling/pcam)). Split sizes and slide counts are in the highlights; splits are slide-disjoint (verified). |
+| **Data** | PCam official splits ([Veeling 2018](https://arxiv.org/abs/1806.03962); [Zenodo 2546921](https://zenodo.org/records/2546921)). Patches are 96×96 px, 4× downsampled from the scans: the [PCam README](https://github.com/basveeling/pcam) gives 40× scans at 0.243 µm/px undersampled to 10× (about 0.97 µm/px), while [Ehteshami Bejnordi et al. 2017](https://jamanetwork.com/journals/jama/fullarticle/2665774) give 0.243 µm/px for the RUMC slides and 0.226 µm/px for the UMCU slides (about 0.90 µm/px after downsampling). The label is positive if the centre 32×32 px contains at least one tumour pixel (PCam README). Split sizes and slide counts are in the highlights; splits are slide-disjoint (verified). |
 | **Audit** | Exact pixel-hash duplicates are counted within and across splits (`results/data_verification.json`). The train–test duplicates and the sensitivity analysis without the duplicated test slide are in the highlights and the [Stage A report](reports/experiments/01_stage_a_reproduction_controls.md). |
 | **Model** | Hibou-L (pinned revision), loaded into transformers' native `Dinov2WithRegistersModel` with no remote code. It is checked numerically against Hibou's own code (see highlights). Embeddings are computed in bf16. |
 | **Baseline protocol** | The eva PCam config exactly ([config](https://github.com/kaiko-ai/eva/blob/main/configs/vision/pathology/offline/classification/patch_camelyon.yaml)): resize to 224, CLS token, `nn.Linear` + BCE, AdamW, early stopping on valid BA, 5 seeds. |
@@ -155,7 +155,7 @@ H2 reproduction gate: valid BA 0.9394 ± 0.0007 (5 seeds) vs. eva's published 0.
 5. **`parity`** compares our Hibou-L embeddings with kaiko-eva's, which uses Hibou's own code (run from `tools/eva_parity`).
 6. **`stage-a`** fits the eva-exact probe (the H2 reproduction gate), the CV incumbent and the controls.
 7. **`stage-b` / `stage-c`** run the ladder: representation, head, TTA, label cleaning, fusion, then LoRA. Each step writes `results/steps/<step>.json` and updates `results/ladder.json`.
-8. **Final evaluation.** The ladder is hashed and git-tagged; only then are test and WILDS embedded and scored once.
+8. **Final evaluation (planned).** The ladder is hashed and git-tagged (`stage_d.freeze`); only then are test and WILDS embedded and scored once. The scoring driver and S6 are not written yet; they follow the postponed S4/S6 steps.
 9. **`report`** regenerates every table, figure, the experiment reports, the README blocks, the site data and the paper PDF.
 
 ## Architecture
@@ -171,14 +171,14 @@ flowchart LR
   F --> H[ladder.py<br/>adoption rule]
   G --> H
   H --> I[seal.py<br/>git-tag test seal]
-  I --> J[stage_d.py<br/>one-shot test + WILDS scoring]
+  I --> J[stage_d.py<br/>freeze; one-shot test + WILDS scoring<br/>driver still to be written]
   J --> K[stats.py<br/>slide-cluster bootstrap,<br/>sign-flip, Holm]
   K --> L[report.py / paper.py<br/>tables, figures, site, paper]
 ```
 
 ## Features
 - **Pre-registration.** Test-split seal enforced in code; deviations log; ladder adoption rule implemented as code (`ladder.py`).
-- **Exact reproduction.** Hibou-L runs with no remote code; parity is checked against kaiko-eva in an isolated environment.
+- **Faithful reproduction.** The eva PCam protocol is re-implemented as published, and Hibou-L runs with no remote code; parity is checked against kaiko-eva in an isolated environment.
 - **Slide-aware statistics.** Stratified slide-cluster bootstrap (BCa), per-slide sign-flip tests, Holm correction, and seed-averaged arms.
 - **Leakage checks.** Slide disjointness, label/meta agreement, pixel-hash duplicates, and a shuffled-label control.
 - **Licence enforcement.** Publishing refuses any artifact derived from Virchow2 or Phikon (CC-BY-NC-ND / non-commercial); see [docs/licenses.md](docs/licenses.md).
@@ -225,6 +225,8 @@ uv run python main.py stage-c --parts s5 s5b  # LoRA fine-tuning, WiSE scaling
 uv run python main.py embed --backbones dinov2_reg_l random_vitl_reg4 --splits train valid
 uv run python main.py stage-a --parts scan --backbones dinov2_reg_l random_vitl_reg4  # control models
 uv run python main.py stage-c --parts h4      # augmentation-matched frozen control
+uv run python main.py wilds-prepare   # WILDS mirror: count checks, fixed subsample, hospital colour check (no predictions)
+uv run python main.py wilds-scanners  # scanner metadata of the official CAMELYON17 slides (centre-to-hospital evidence)
 uv run python main.py report          # tables, figures, reports, README blocks, site data, paper PDF
 uv run python main.py release --title "..."   # report + commit + PR + merge + Hugging Face upload
 ```
@@ -232,7 +234,7 @@ Reproducing the parity check against kaiko-eva is described in [docs/usage.md](d
 
 ## Data, models and licences
 - **PCam:** CC0 per the [PCam README](https://github.com/basveeling/pcam); the Zenodo record lists MIT. The README lists the validation and test md5 sums swapped for all three file pairs (images, labels, meta CSVs); the Zenodo API checksums are used here.
-- **Camelyon17-WILDS:** CC0. Obtained from the Hugging Face mirror `wltjr1007/Camelyon17-WILDS` (revision `d784d53`) because the official CodaLab server's TLS certificate had expired when the data were fetched (2026-11-01); split sizes were checked against the WILDS paper.
+- **Camelyon17-WILDS:** CC0 ([WILDS](https://wilds.stanford.edu/datasets/)). Obtained from the Hugging Face mirror `wltjr1007/Camelyon17-WILDS` (revision `d784d53`; its own licence field says "other") because the official CodaLab server's TLS certificate had expired when the data were fetched (early 2026-11-01; it was renewed at 13:42 UTC that day); split sizes were checked against the WILDS paper.
 - **Models used under their own licences:**
   - Hibou-L/B, H-optimus-0, Prov-GigaPath, Virchow, OpenMidnight-1.1, DINOv2: Apache-2.0.
   - Midnight-12k: MIT.

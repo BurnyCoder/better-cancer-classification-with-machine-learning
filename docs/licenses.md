@@ -29,7 +29,7 @@ This study is **non-commercial academic research**. It makes **no clinical or di
 | Dataset | Licence | Source |
 |---|---|---|
 | PatchCamelyon | CC0 (GitHub README); Zenodo lists MIT | [basveeling/pcam](https://github.com/basveeling/pcam), [Zenodo 2546921](https://zenodo.org/records/2546921) |
-| Camelyon17-WILDS | CC0 | [WILDS](https://wilds.stanford.edu/datasets/); used through the Hugging Face mirror [wltjr1007/Camelyon17-WILDS](https://huggingface.co/datasets/wltjr1007/Camelyon17-WILDS) at revision `d784d53` |
+| Camelyon17-WILDS | CC0 (upstream; the mirror's licence field says "other") | [WILDS](https://wilds.stanford.edu/datasets/); used through the Hugging Face mirror [wltjr1007/Camelyon17-WILDS](https://huggingface.co/datasets/wltjr1007/Camelyon17-WILDS) at revision `d784d53` |
 
 ## This repository
 The repository's own code is MIT-licensed. It contains no third-party model weights. It keeps the Apache-2.0 text that ships with the published artifacts in `LICENSES/Apache-2.0.txt`. Weights are downloaded from Hugging Face into the local cache by each user, under their own acceptance of each licence.

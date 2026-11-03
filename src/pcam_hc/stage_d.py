@@ -1,15 +1,16 @@
 """Stage D: final combination (S6), ladder freeze, and one-shot scoring of every arm on the sealed
 PCam test split and the Camelyon17-WILDS subsample.
 
-Global context: pre-registration sections 3, 5 and 7.
-  * S6 combines the adopted components: the Hibou-L component (frozen head or LoRA, with TTA if S3
-    adopted it) and the S4 fusion if adopted. Candidates are equal-weight logit averaging and
-    logistic-regression stacking, compared by slide-grouped inner CV on train fold 0.
+Global context: pre-registration sections 3, 5 and 7. Implemented so far (no CLI phase calls them yet):
   * `freeze` hashes results/ladder.json into frozen_ladder.json, commits it and tags `ladder-frozen`.
     Only then do the test split and WILDS become readable (seal.py).
-  * `score` rebuilds every arm's predictions on a new split from its saved heads, LoRA states or
-    member arms, then runs the confirmatory tests (H1, H1b, H4, H6; Holm), the secondary metrics and
-    the pre-registered sensitivity analysis without the duplicated slide camelyon16_test_049.
+  * building blocks for one-shot scoring: `head_arm_logits` rebuilds a head-based arm's predictions on a
+    new split from its saved heads and recorded recipe; `evaluate` adds slide-bootstrap CIs and paired
+    contrasts; `confirmatory` applies Holm across H1, H1b, H4 and H6; `sensitivity_mask` drops the
+    duplicated slide camelyon16_test_049 (pre-registered sensitivity analysis).
+Still to be written, together with the postponed S4/S6 steps: the S6 combination (equal-weight logit
+averaging vs. logistic-regression stacking on train fold 0), LoRA-state and fusion-arm scoring on new
+splits, and the driver that scores every arm once.
 """
 
 import json

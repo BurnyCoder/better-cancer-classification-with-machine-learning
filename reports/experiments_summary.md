@@ -22,17 +22,17 @@ Best Hibou-L pipeline: `S5_lora`. Frozen-feature incumbent (the input to the pos
 
 | Network | Architecture | Training objective | Pretraining data | PCam OOF BA (CLS probe, this study) | Source |
 |---|---|---|---|---|---|
-| Hibou-L | ViT-L/14 + 4 registers, SwiGLU, 304M (model card) | DINOv2 self-supervised (student-teacher distillation, masked tokens) | 1.2B patches from 936k H&E + 202k non-H&E private slides | 0.9498 [0.9366, 0.9600] | https://arxiv.org/abs/2406.05074, https://huggingface.co/histai/hibou-L |
+| Hibou-L | ViT-L/14 + 4 registers, SwiGLU (config), ~304M (HF weights) | DINOv2 self-supervised (student-teacher distillation, masked tokens) | 1.2B patches from 936k H&E + 202k non-H&E private slides | 0.9498 [0.9366, 0.9600] | https://arxiv.org/abs/2406.05074, https://huggingface.co/histai/hibou-L |
 | Hibou-B | ViT-B/14 + 4 registers, 86M | DINOv2 | 512M tiles, same private data as Hibou-L | pending | https://arxiv.org/abs/2406.05074 |
-| Prov-GigaPath (tile) | ViT-g/14, ~1.1B | DINOv2 | 1.3B tiles, 171k Providence slides | pending | https://doi.org/10.1038/s41586-024-07441-w |
+| Prov-GigaPath (tile) | ViT-g with 16×16 patches (config), ~1.1B | DINOv2 | 1.3B tiles, 171k Providence slides | pending | https://doi.org/10.1038/s41586-024-07441-w |
 | H-optimus-0 | ViT-g/14 + 4 registers, 1.1B | DINOv2-style SSL | proprietary, >500k slides | pending | https://huggingface.co/bioptimus/H-optimus-0 |
 | Virchow2 | ViT-H/14 + 4 registers, 632M | DINOv2 with pathology-specific changes | 3.1M MSKCC slides, mixed magnification | pending | https://arxiv.org/abs/2408.00738 |
 | Virchow | ViT-H/14, 632M | DINOv2 | 1.5M MSKCC slides at 20x | pending | https://huggingface.co/paige-ai/Virchow |
-| Midnight-12k | ViT-g/14, 1.1B | DINOv2 + KDE regulariser | 12k TCGA slides | pending | https://arxiv.org/abs/2504.05186 |
+| Midnight-12k | ViT-g/14, 1.1B | DINOv2 + KDE regulariser, initialised from natural-image DINOv2 ViT-g/14 | 12k TCGA slides | pending | https://arxiv.org/abs/2504.05186 |
 | OpenMidnight-1.1 | ViT-g/14 + 4 registers | DINOv2-style SSL | not stated on card | pending | https://huggingface.co/medarc/OpenMidnight-1.1 |
 | Phikon | ViT-B/16, 86M | iBOT | TCGA tiles | pending | https://huggingface.co/owkin/phikon |
-| Phikon-v2 | ViT-L/16, 303M | DINOv2 | TCGA, CPTAC, GTEx, TCIA (public) | pending | https://huggingface.co/owkin/phikon-v2 |
-| DINOv2-L (control) | ViT-L/14 + 4 registers, standard MLP, 304M | DINOv2 | LVD-142M natural images | 0.8797 [0.8622, 0.8940] | https://arxiv.org/abs/2304.07193, https://arxiv.org/abs/2309.16588 |
+| Phikon-v2 | ViT-L/16, 303M | DINOv2 | public cohorts incl. TCGA, CPTAC, GTEx, TCIA (PANCAN-XL) | pending | https://huggingface.co/owkin/phikon-v2 |
+| DINOv2-L (control) | ViT-L/14 + 4 registers, standard MLP (config), ~304M (HF weights) | DINOv2 | LVD-142M natural images | 0.8797 [0.8622, 0.8940] | https://arxiv.org/abs/2304.07193, https://arxiv.org/abs/2309.16588 |
 | Random ViT-L (control) | Hibou-L's config (ViT-L/14 + 4 registers, SwiGLU), 304M | none (random init) | none | 0.7973 [0.7692, 0.8201] | — |
 
 ## Main classifiers (8 of the 22 arms; every arm is in the README results table)
@@ -47,7 +47,7 @@ All are evaluated on H&E-stained lymph-node patches (PCam, 96×96 px); "valid BA
 | `H4_aug_control` | Control: the original, trained on LoRA's training patches recoloured/rotated with LoRA's augmentation recipe | linear head; Hibou-L frozen | AdamW, BCE | folds 1–4, cleaned, one seeded random augmented view per patch (not LoRA's draws) | 0.9344 [0.8853, 0.9627] |
 | `S0_scan_dinov2_reg_l` | Control: a network of Hibou-L's size pretrained on everyday photos instead of pathology | linear head; DINOv2-L frozen | AdamW, BCE | all train slides | 0.8682 [0.8103, 0.9023] |
 | `S0_scan_random_vitl_reg4` | Control: Hibou-L's architecture with random, untrained weights | linear head; random ViT-L frozen | AdamW, BCE | all train slides | 0.7902 [0.7232, 0.8334] |
-| `control_color_histogram` | Control: uses only the colour distribution of the patch | logistic regression on 96 colour bins | L-BFGS, logistic loss | all train slides | 0.8098 [0.7530, 0.8472] |
+| `control_color_histogram` | Control: uses only the colour distribution of the patch | logistic regression on RGB histograms (3 × 32 bins) | L-BFGS, logistic loss | all train slides | 0.8098 [0.7530, 0.8472] |
 | `control_shuffled_labels` | Control: trained on shuffled labels, so it can only guess | linear head; Hibou-L frozen | AdamW, BCE | train with permuted labels | 0.4731 [0.4280, 0.5212] |
 
 ## Experiments

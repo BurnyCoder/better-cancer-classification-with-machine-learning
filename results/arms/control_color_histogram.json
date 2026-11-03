@@ -1,6 +1,6 @@
 {
   "name": "control_color_histogram",
-  "description": "96-bin RGB histogram + logistic regression (stain shortcut check)",
+  "description": "RGB colour histograms, 32 bins per channel (96 features), + logistic regression (stain shortcut check)",
   "head": "logreg",
   "backbones": [],
   "publishable": true,

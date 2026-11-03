@@ -6,7 +6,7 @@ Global context: pre-registration section 6, S5/S5b.
   * LP-FT (Kumar et al. 2022, https://arxiv.org/abs/2202.10054): the classifier starts from a probe fitted
     with the incumbent's frozen-probe recipe on the LoRA training patches (`stage_c.lp_head`; the S2 head
     change was rejected), so fine-tuning begins at the linear-probe solution.
-  * Augmentation: D4 (random rotation/flip) + HED stain jitter (Tellez et al. 2018, IEEE TMI, App. B Eq. 6,
+  * Augmentation: D4 (random rotation/flip) + HED stain jitter (Tellez et al. 2018, IEEE TMI, App. B Eqs. 5-7,
     https://arxiv.org/abs/1808.05896; called "HED-light" at s = 0.05 in Tellez et al. 2019,
     https://arxiv.org/abs/1902.06543): alpha ~ U(1-s, 1+s), beta ~ U(-s, s) per HED channel, s = 0.05.
     The stain space here is scikit-image's (see `augment` for the resulting strength).
@@ -59,10 +59,11 @@ def hed_jitter(x: torch.Tensor, sigma: float, generator: torch.Generator | None 
 
 def augment(x: torch.Tensor, sigma: float, generator: torch.Generator) -> torch.Tensor:
     """Random D4 element per image, then HED jitter. Note on strength: scikit-image (>= 0.19) divides the
-    optical density by ln(1e6), so sigma = 0.05 shifts each stain by up to 0.05 * ln(1e6) = 0.69 OD, which
-    changes pixels by about 36/255 on average (`results/hed_strength.json`, PCam valid). Tellez et al. 2018
-    (App. B Eqs. 5-6) perturb unscaled OD stain values, where the same sigma shifts a stain by at most 0.05:
-    the additive term here is ln(1e6) = 13.8x theirs (the multiplicative alpha is unit-free and identical)."""
+    natural-log optical density by ln(1e6), so sigma = 0.05 shifts each stain by up to 0.05 * ln(1e6) = 0.69
+    natural-log OD (0.30 base-10 OD), which changes pixels by about 36/255 on average (`results/hed_strength.json`,
+    PCam valid). Tellez et al. 2018 (App. B Eqs. 5-7) perturb unscaled OD stain values, where the same sigma
+    shifts a stain by at most 0.05: the additive term here is ln(1e6) = 13.8x theirs if their log is natural
+    (6x if base 10; the base is not stated). The multiplicative alpha is unit-free and identical."""
     ks = torch.randint(0, 8, (x.shape[0],), generator=generator)
     x = torch.stack([d4_view(img, int(k)) for img, k in zip(x, ks)])
     return hed_jitter(x, sigma, generator)

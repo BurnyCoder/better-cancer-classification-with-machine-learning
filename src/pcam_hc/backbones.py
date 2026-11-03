@@ -100,7 +100,7 @@ def _hibou_native(spec: BackboneSpec, random_init: bool = False) -> nn.Module:
     Hibou ships a custom DINOv2-with-registers implementation (`trust_remote_code`). Its embedding
     order [CLS, 4 registers, patches] and position-embedding handling match the native class, so
     the pinned safetensors are loaded into it; loading must report no missing/unexpected keys, and
-    tests/check_parity compare outputs against the remote code."""
+    `main.py parity` compares its outputs with kaiko-eva running the remote code (tools/eva_parity)."""
     from huggingface_hub import hf_hub_download
     from transformers import Dinov2WithRegistersConfig, Dinov2WithRegistersModel
 

@@ -129,7 +129,7 @@ def cmd_stage_a(args):
                    description="Hibou-L CLS, linear head trained on permuted train labels")
         ex.run_arm(ctx, "control_color_histogram", color_histograms("train"), color_histograms("valid"),
                    kind="logreg", backbones=(), C=1.0, seeds=(0,),
-                   description="96-bin RGB histogram + logistic regression (stain shortcut check)")
+                   description="RGB colour histograms, 32 bins per channel (96 features), + logistic regression (stain shortcut check)")
         const = np.zeros((1, len(ctx.y_valid)), dtype=np.float32) + 1e-3  # always 'tumour' at p ~ 0.5
         rec = {"name": "control_majority", "description": "constant prediction", "backbones": [],
                "publishable": True, "valid": ex.summarise(ctx.y_valid, const, ctx.slides_valid)}
@@ -187,6 +187,13 @@ def cmd_wilds_prepare(args):
     print(json.dumps(prepare(), indent=2, default=str))
 
 
+def cmd_wilds_scanners(args):
+    """Scanner evidence for the WILDS centre-to-hospital mapping, read from the official CAMELYON17 slide headers."""
+    from pcam_hc.wilds import slide_scanners
+
+    print(json.dumps(slide_scanners(), indent=2))
+
+
 def cmd_publish(args):
     """Upload licence-clean heads/adapters (all, or --arms) to the Hugging Face collection."""
     from pcam_hc.publish import publishable_arms, upload
@@ -222,7 +229,7 @@ def cmd_report(args):
 
 
 PHASES = {"download": cmd_download, "verify": cmd_verify, "access": cmd_access, "embed": cmd_embed,
-          "embed-tta": cmd_embed_tta, "wilds-prepare": cmd_wilds_prepare, "publish": cmd_publish, "published": cmd_published,
+          "embed-tta": cmd_embed_tta, "wilds-prepare": cmd_wilds_prepare, "wilds-scanners": cmd_wilds_scanners, "publish": cmd_publish, "published": cmd_published,
           "release": cmd_release, "release-watch": cmd_release_watch,
           "parity": cmd_parity, "stage-a": cmd_stage_a, "stage-b": cmd_stage_b, "stage-c": cmd_stage_c, "report": cmd_report}
 
@@ -239,7 +246,7 @@ def main():
     parser.add_argument("--arms", nargs="+", default=None, help="publish: arm names (default: all publishable)")
     parser.add_argument("--title", default=None, help="release: commit / PR title")
     parser.add_argument("--parts", nargs="+", default=["h2", "s0", "controls", "scan"],
-                        help="stage-a: h2 s0 controls scan; stage-b: s1 s2 s3 s3b s4; stage-c: s5 s5b h4 convnext")
+                        help="stage-a: h2 s0 controls scan; stage-b: s1 s2 s3 s3b s4; stage-c: s5 s5b h4 convnext mask-audit")
     args = parser.parse_args()
     setup_logging(args.phase)
     PHASES[args.phase](args)

@@ -14,7 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(PROJECT_ROOT / ".env")  # sets HF_HOME etc. before any HF import
+load_dotenv(PROJECT_ROOT / ".env")  # sets HF_HUB_CACHE and the data paths before any HF import (not HF_HOME)
 
 
 @dataclass(frozen=True)

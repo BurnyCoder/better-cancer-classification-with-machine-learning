@@ -129,7 +129,7 @@ def cmd_stage_a(args):
                    description="Hibou-L CLS, linear head trained on permuted train labels")
         ex.run_arm(ctx, "control_color_histogram", color_histograms("train"), color_histograms("valid"),
                    kind="logreg", backbones=(), C=1.0, seeds=(0,),
-                   description="96-bin RGB histogram + logistic regression (stain shortcut check)")
+                   description="RGB colour histograms, 32 bins per channel (96 features), + logistic regression (stain shortcut check)")
         const = np.zeros((1, len(ctx.y_valid)), dtype=np.float32) + 1e-3  # always 'tumour' at p ~ 0.5
         rec = {"name": "control_majority", "description": "constant prediction", "backbones": [],
                "publishable": True, "valid": ex.summarise(ctx.y_valid, const, ctx.slides_valid)}
@@ -239,7 +239,7 @@ def main():
     parser.add_argument("--arms", nargs="+", default=None, help="publish: arm names (default: all publishable)")
     parser.add_argument("--title", default=None, help="release: commit / PR title")
     parser.add_argument("--parts", nargs="+", default=["h2", "s0", "controls", "scan"],
-                        help="stage-a: h2 s0 controls scan; stage-b: s1 s2 s3 s3b s4; stage-c: s5 s5b h4 convnext")
+                        help="stage-a: h2 s0 controls scan; stage-b: s1 s2 s3 s3b s4; stage-c: s5 s5b h4 convnext mask-audit")
     args = parser.parse_args()
     setup_logging(args.phase)
     PHASES[args.phase](args)

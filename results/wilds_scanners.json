@@ -1,0 +1,63 @@
+{
+  "source": "https://camelyon-dataset.s3.amazonaws.com/CAMELYON17/images/patient_{p:03d}_node_0.tif",
+  "patients": 100,
+  "per_centre": {
+    "0": {
+      "um_per_px": [
+        0.2431
+      ],
+      "manufacturer": [
+        null
+      ],
+      "software": [
+        null
+      ]
+    },
+    "1": {
+      "um_per_px": [
+        0.2431
+      ],
+      "manufacturer": [
+        null
+      ],
+      "software": [
+        null
+      ]
+    },
+    "2": {
+      "um_per_px": [
+        0.2262,
+        0.2263,
+        0.2269
+      ],
+      "manufacturer": [
+        null
+      ],
+      "software": [
+        null
+      ]
+    },
+    "3": {
+      "um_per_px": [
+        0.2431
+      ],
+      "manufacturer": [
+        null
+      ],
+      "software": [
+        null
+      ]
+    },
+    "4": {
+      "um_per_px": [
+        0.25
+      ],
+      "manufacturer": [
+        "PHILIPS"
+      ],
+      "software": [
+        "Philips DP v1.0"
+      ]
+    }
+  }
+}

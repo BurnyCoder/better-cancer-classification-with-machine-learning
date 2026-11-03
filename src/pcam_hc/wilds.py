@@ -2,17 +2,21 @@
 
 Global context: WILDS Camelyon17 (Koh et al. 2021, https://arxiv.org/abs/2012.07421) has 96x96
 patches from 50 slides of 5 hospitals, labelled with the same rule as PCam (any tumour pixel in
-the centre 32x32) at the same ~0.97 um/px resolution. The official CodaLab download had an expired
+the centre 32x32) and extracted, like PCam, at the third-highest resolution level (4x downsampled;
+App. E.2.4 calls the extraction "similar to" PCam's). The official CodaLab download had an expired
 TLS certificate on 2026-11-01, so the data come from a local copy of the Hugging Face parquet mirror
 `wltjr1007/Camelyon17-WILDS` at revision MIRROR_REVISION (downloaded with huggingface_hub into MIRROR;
 this module only reads it), and its split sizes are checked against the WILDS paper. Nothing is fit
 on these patches. Like the PCam test split, they are embedded and scored only after the ladder is frozen.
 
-Centre IDs are unresolved (deviations log, open issue e). arXiv:2404.11161v1 Sec. 2.1 gives 0 = CWZ,
-1 = RST, 4 = LPON. Tomar et al. 2024 (arXiv:2411.09373, Sec. 4.1: centres 0, 3 and 4 share one scanner)
-with Litjens et al. 2018 (RUMC, CWZ and RST slides were scanned on one 3DHistech scanner) instead imply
-{0, 3, 4} = {RUMC, CWZ, RST}. The pool of hospitals Camelyon16 did not use is re-decided and logged
-before WILDS is unsealed; `hospital_colour_check` compares centres with PCam slides of known hospital.
+Centre IDs are partly unresolved (deviations log, open issue e). arXiv:2404.11161v1 Sec. 2.1 gives 0 = CWZ,
+1 = RST, 4 = LPON. `slide_scanners` reads the official CAMELYON17 slide files: centres 0, 1 and 3 share
+one pixel size (RUMC's 3DHistech scanner, which also scanned the CWZ and RST slides; Litjens et al. 2018),
+centre 2 has UMCU's Hamamatsu pixel size and centre 4 is a Philips scanner (LPON). This contradicts
+Tomar et al. 2024 (arXiv:2411.09373, Sec. 4.1: "centres 0, 3 and 4 ... the same scanner") and leaves
+open only which of centres 0, 1 and 3 is RUMC. The pool of hospitals Camelyon16 did not use is
+re-decided and logged before WILDS is unsealed; `hospital_colour_check` compares centres with PCam
+slides of known hospital.
 """
 
 import io
@@ -36,6 +40,81 @@ EXPECTED = {"train": 302_436, "id_val": 33_560, "ood_val": 34_904, "test": 85_05
 CENTER_HOSPITAL = {0: "CWZ", 1: "RST", 2: "RUMC or UMCU", 3: "RUMC or UMCU", 4: "LPON"}
 PRIMARY_OOD_CENTERS = (0, 1, 4)  # planned non-Camelyon16 pool under that mapping (open issue e)
 META_COLS = ["label", "center", "image_id", "patient", "node", "x_coord", "y_coord", "slide"]
+# Camelyon16 training slides that the official evaluation/reference.csv puts at RUMC (`center` 0) although the
+# numbering rule would say UMCU: https://camelyon-dataset.s3.amazonaws.com/CAMELYON16/evaluation/reference.csv
+RUMC_EXCEPTIONS = {"camelyon16_train_normal_144", "camelyon16_train_tumor_111"}
+# Official CAMELYON17 training slides (CC0); WILDS metadata pair patient p with centre p // 20.
+CAMELYON17_TIFF = "https://camelyon-dataset.s3.amazonaws.com/CAMELYON17/images/patient_{p:03d}_node_{n}.tif"
+
+
+def _range(url: str, start: int, n: int) -> bytes:
+    """Bytes [start, start + n) of a remote file (HTTP range request)."""
+    import urllib.request
+
+    req = urllib.request.Request(url, headers={"Range": f"bytes={start}-{start + n - 1}"})
+    with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 - fixed https URL
+        return r.read()
+
+
+def tiff_scanner_tags(url: str) -> dict:
+    """Pixel size and scanner maker from the first image directory of a remote (Big)TIFF, reading only the
+    header (TIFF 6.0 and BigTIFF layouts: https://www.awaresystems.be/imaging/tiff/bigtiff.html).
+    ASAP-style files store XResolution (tag 282) in pixels per cm (ResolutionUnit 296 = 3); Philips-exported
+    files store DICOM_PIXEL_SPACING (mm) and DICOM_MANUFACTURER in the ImageDescription XML (tag 270)."""
+    import re
+    import struct
+
+    head = _range(url, 0, 16)
+    e = "<" if head[:2] == b"II" else ">"
+    big = struct.unpack(e + "H", head[2:4])[0] == 43
+    if big:  # BigTIFF: 8-byte offsets, 20-byte entries, value field at byte 12
+        off = struct.unpack(e + "Q", head[8:16])[0]
+        n = struct.unpack(e + "Q", _range(url, off, 8))[0]
+        entries, size, fmt, vpos, inline = _range(url, off + 8, n * 20), 20, "HHQQ", 12, 8
+    else:  # classic TIFF: 4-byte offsets, 12-byte entries, value field at byte 8
+        off = struct.unpack(e + "I", head[4:8])[0]
+        n = struct.unpack(e + "H", _range(url, off, 2))[0]
+        entries, size, fmt, vpos, inline = _range(url, off + 2, n * 12), 12, "HHII", 8, 4
+    tags = {}
+    for i in range(n):
+        tag, typ, count, value = struct.unpack(e + fmt, entries[i * size:(i + 1) * size])
+        if tag not in (270, 282, 296, 305):
+            continue
+        nbytes = {2: 1, 3: 2, 4: 4, 5: 8}.get(typ, 1) * count
+        raw = entries[i * size + vpos:(i + 1) * size] if nbytes <= inline else _range(url, value, nbytes)
+        if typ == 2:  # ASCII
+            tags[tag] = raw[:nbytes].split(b"\0")[0].decode(errors="replace")
+        elif typ == 5:  # RATIONAL
+            num, den = struct.unpack(e + "II", raw[:8])
+            tags[tag] = num / den
+        elif typ == 3:  # SHORT
+            tags[tag] = struct.unpack(e + "H", raw[:2])[0]
+    xml = tags.get(270, "")
+    spacing = re.search(r'DICOM_PIXEL_SPACING"[^>]*>(?:&quot;|")([\d.]+)', xml)
+    maker = re.search(r'DICOM_MANUFACTURER"[^>]*>([^<]*)<', xml)
+    um = 1e4 / tags[282] if tags.get(282) and tags.get(296) == 3 else (1e3 * float(spacing[1]) if spacing else None)
+    return {"um_per_px": None if um is None else round(um, 4), "manufacturer": maker[1].strip() if maker else None,
+            "software": tags.get(305)}
+
+
+def slide_scanners(node: int = 0) -> dict:
+    """Scanner evidence for the WILDS centre-to-hospital mapping (open issue e): pixel size and maker of node
+    `node` of every CAMELYON17 training patient (0-99), grouped by centre; written to results/wilds_scanners.json.
+    Reference values: RUMC slides 0.243 um/px (3DHistech; it also scanned CWZ and RST), UMCU 0.226 um/px
+    (Hamamatsu; Ehteshami Bejnordi et al. 2017, JAMA; Litjens et al. 2018), LPON a Philips scanner."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(8) as pool:
+        tags = list(pool.map(lambda p: tiff_scanner_tags(CAMELYON17_TIFF.format(p=p, n=node)), range(100)))
+    per_centre = {}
+    for p, t in enumerate(tags):
+        c = per_centre.setdefault(p // 20, {"um_per_px": set(), "manufacturer": set(), "software": set()})
+        for k in c:
+            c[k].add(t[k])
+    out = {"source": CAMELYON17_TIFF.replace("{n}", str(node)), "patients": 100,
+           "per_centre": {c: {k: sorted(v, key=str) for k, v in d.items()} for c, d in per_centre.items()}}
+    (PATHS.results / "wilds_scanners.json").write_text(json.dumps(out, indent=2))
+    return out
 
 
 def parquet_files() -> list:
@@ -117,10 +196,12 @@ def hospital_colour_check(wilds_root: Path = WILDS_DIR / "subsample", per_slide:
     a Hamamatsu and LPON on a Philips scanner (Litjens et al. 2018, GigaScience), so the check can
     identify the UMCU-like and LPON-like centres but cannot separate RUMC from CWZ/RST.
 
-    PCam slides are assigned to hospitals by the ASSUMED Camelyon16 numbering (RUMC: tumor_001-070 and
-    normal_001-100, i.e. 70 + 100 slides as published; UMCU: the rest). The assumption is tested by
-    comparing the between-group distance with a random slide split of the same sizes: a scanner
-    difference should make the assumed split far more separated than chance."""
+    PCam slides are assigned to hospitals by the Camelyon16 numbering (RUMC: tumor_001-070 and
+    normal_001-100; UMCU: the rest) plus the two exceptions of the official CAMELYON16
+    evaluation/reference.csv (`center` 0 = RUMC): normal_144 and tumor_111 are RUMC. results/wilds_data.json
+    of 2026-11-01 predates the exceptions (normal_144, a PCam train slide, was in the UMCU group). The
+    assignment is tested by comparing the between-group distance with a random slide split of the same
+    sizes: a scanner difference should make it far more separated than chance."""
     from pcam_hc.data import PCamImages, load_meta
 
     def hist(x):
@@ -130,7 +211,8 @@ def hospital_colour_check(wilds_root: Path = WILDS_DIR / "subsample", per_slide:
     meta = load_meta("train").reset_index(drop=True)
     num = meta["wsi"].str.extract(r"_(\d+)$")[0].astype(int)
     is_tumour = meta["wsi"].str.contains("tumor")
-    hospital = np.where((is_tumour & (num <= 70)) | (~is_tumour & (num <= 100)), "RUMC", "UMCU")
+    rumc = (is_tumour & (num <= 70)) | (~is_tumour & (num <= 100)) | meta["wsi"].isin(RUMC_EXCEPTIONS)
+    hospital = np.where(rumc, "RUMC", "UMCU")
     imgs = PCamImages("train")
     ref = {}
     for h in ("RUMC", "UMCU"):
@@ -151,7 +233,8 @@ def hospital_colour_check(wilds_root: Path = WILDS_DIR / "subsample", per_slide:
     return {"l1_distance_to_pcam_hospital": out,
             "pcam_assumed_hospital_split_l1": float(np.abs(ref["RUMC"] - ref["UMCU"]).sum()),
             "pcam_random_slide_split_l1": float(np.abs(null[0] - null[1]).sum()),
-            "reference_rule": "assumed Camelyon16 numbering (RUMC: tumor<=70, normal<=100)"}
+            "reference_rule": "Camelyon16 numbering (RUMC: tumor<=70, normal<=100) + reference.csv exceptions "
+                              "(normal_144, tumor_111 = RUMC)"}
 
 
 def prepare() -> dict:

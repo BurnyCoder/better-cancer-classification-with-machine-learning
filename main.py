@@ -187,6 +187,13 @@ def cmd_wilds_prepare(args):
     print(json.dumps(prepare(), indent=2, default=str))
 
 
+def cmd_wilds_scanners(args):
+    """Scanner evidence for the WILDS centre-to-hospital mapping, read from the official CAMELYON17 slide headers."""
+    from pcam_hc.wilds import slide_scanners
+
+    print(json.dumps(slide_scanners(), indent=2))
+
+
 def cmd_publish(args):
     """Upload licence-clean heads/adapters (all, or --arms) to the Hugging Face collection."""
     from pcam_hc.publish import publishable_arms, upload
@@ -222,7 +229,7 @@ def cmd_report(args):
 
 
 PHASES = {"download": cmd_download, "verify": cmd_verify, "access": cmd_access, "embed": cmd_embed,
-          "embed-tta": cmd_embed_tta, "wilds-prepare": cmd_wilds_prepare, "publish": cmd_publish, "published": cmd_published,
+          "embed-tta": cmd_embed_tta, "wilds-prepare": cmd_wilds_prepare, "wilds-scanners": cmd_wilds_scanners, "publish": cmd_publish, "published": cmd_published,
           "release": cmd_release, "release-watch": cmd_release_watch,
           "parity": cmd_parity, "stage-a": cmd_stage_a, "stage-b": cmd_stage_b, "stage-c": cmd_stage_c, "report": cmd_report}
 

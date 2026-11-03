@@ -263,10 +263,10 @@ def highlights() -> str | None:
         return None
     hib = next(r for r in pub["eva_leaderboard"]["rows"] if r["model"] == "Hibou-L") if pub else None
     ci = lambda b: f"{b['ba']:.3f} (95% CI {b['ci_ba'][0]:.3f}–{b['ci_ba'][1]:.3f})"  # noqa: E731
-    from pcam_hc.report_experiments import CAMELYON16_README, WILDS_POOL_MD, duplicate_slide, ladder_findings
+    from pcam_hc.report_experiments import CAMELYON16_README, duplicate_slide, ladder_findings, wilds_pool_md
 
     out = [
-        f"- ✅ **Exact reproduction.** Our Hibou-L probe scores **{gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f}** validation balanced accuracy (BA; {gate['n_seeds']} seeds), against the published **{hib['val_ba']:.3f}** ([eva leaderboard]({EVA_LEADERBOARD})). "
+        f"- ✅ **Reproduction to the published precision.** Our Hibou-L probe scores **{gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f}** validation balanced accuracy (BA; {gate['n_seeds']} seeds), against the published **{hib['val_ba']:.3f}** ([eva leaderboard]({EVA_LEADERBOARD})). "
         f"Our remote-code-free model matches Hibou's own code to a mean cosine of {parity['fp32_cpu']['mean_cosine']:.6f} (fp32, {parity['n']} validation patches).",
         f"- ✅ **The original Hibou-L probe under cross-validation** over {dv['train_slides']} training slides: OOF BA {ci(s0['oof']['seed_avg'])}; validation {ci(s0['valid']['seed_avg'])}.",
         f"- ✅ **Controls behave as expected.** Shuffled labels: {sh['oof']['seed_avg']['ba']:.3f} (chance). Colour histogram only: {ci(ch['oof']['seed_avg'])}. Colour carries signal, but far less than Hibou-L.",
@@ -277,8 +277,8 @@ def highlights() -> str | None:
                    f"The official [CAMELYON16 README]({CAMELYON16_README}) lists test_049 as a duplicate slide intentionally removed from the data set; PCam still contains it "
                    f"({dup['test_slide_n']:,} test patches). Every test result will also be reported without it (decided while test was sealed).")
     out += [
-        f"- ⚠️ **Validation split is small.** It has {dv['valid_slides']} slides, {dv['valid_tumour_slides']} with tumour, so its CIs are "
-        f"{(s0['valid']['seed_avg']['ci_ba'][1] - s0['valid']['seed_avg']['ci_ba'][0]) / (s0['oof']['seed_avg']['ci_ba'][1] - s0['oof']['seed_avg']['ci_ba'][0]):.1f}× wider than the train CV ones. "
+        f"- ⚠️ **Validation split is small.** It has {dv['valid_slides']} slides, {dv['valid_tumour_slides']} with tumour, so the original probe's validation CI is "
+        f"{(s0['valid']['seed_avg']['ci_ba'][1] - s0['valid']['seed_avg']['ci_ba'][0]) / (s0['oof']['seed_avg']['ci_ba'][1] - s0['oof']['seed_avg']['ci_ba'][0]):.1f}× wider than its train-CV CI. "
         "Ideas are therefore selected on train CV, and validation only checks that nothing gets worse.",
     ]
     if findings := ladder_findings():  # release 2+ headline results (shared with the paper's abstract)
@@ -286,7 +286,7 @@ def highlights() -> str | None:
     if wl:
         d = wl["hospital_check"]["l1_distance_to_pcam_hospital"]["2"]
         out.append(f"- ⚠️ **The official Camelyon17-WILDS test hospital is most likely not out-of-distribution for PCam.** Its colour signature matches UMCU, a Camelyon16 source hospital (L1 {d['UMCU']:.2f} vs. {d['RUMC']:.2f} to RUMC). "
-                   + WILDS_POOL_MD)
+                   + wilds_pool_md())
     out.append(f"- **Data:** train {dv['train_n']:,} / valid {dv['valid_n']:,} / test {dv['test_n']:,} patches from {dv['train_slides']} / {dv['valid_slides']} / {dv['test_slides']} slides; no slide is shared between splits.")
     return "\n".join(out)
 

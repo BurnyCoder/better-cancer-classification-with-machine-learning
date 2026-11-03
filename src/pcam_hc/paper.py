@@ -23,13 +23,16 @@ def _ba(b: dict) -> str:
 
 
 def _cell(x) -> str:
-    return "[" + str(x).replace("[", "\\[").replace("]", "\\]").replace("#", "\\#").replace("*", "\\*").replace("_", "\\_") + "]"
+    # "_" is escaped for Typst and followed by a zero-width space, so long arm names can wrap in narrow columns.
+    return "[" + str(x).replace("[", "\\[").replace("]", "\\]").replace("#", "\\#").replace("*", "\\*").replace("_", "\\_\u200b") + "]"
 
 
 def _table(header: list, rows: list) -> str:
-    return (f"#table(columns: {len(header)}, stroke: 0.4pt + luma(200), inset: 4pt, align: left,\n"
+    """Typst table; ragged-right 9 pt text inside, so narrow columns neither stretch nor overflow."""
+    return ("#[#set par(justify: false)\n#set text(size: 9pt)\n"
+            f"#table(columns: {len(header)}, stroke: 0.4pt + luma(200), inset: 4pt, align: left,\n"
             f"  table.header({', '.join('[*' + str(h) + '*]' for h in header)}),\n  " +
-            ",\n  ".join(", ".join(_cell(c) for c in r) for r in rows) + ")")
+            ",\n  ".join(", ".join(_cell(c) for c in r) for r in rows) + ")]")
 
 
 REFS = [
@@ -54,11 +57,11 @@ REFS = [
     ("wilds", "P. W. Koh et al. WILDS: A benchmark of in-the-wild distribution shifts. ICML 2021.", "https://arxiv.org/abs/2012.07421"),
     ("efron", "B. Efron. Better bootstrap confidence intervals. JASA 1987.", "https://doi.org/10.1080/01621459.1987.10478410"),
     ("holm", "S. Holm. A simple sequentially rejective multiple test procedure. Scand. J. Stat. 1979.", "https://www.jstor.org/stable/4615733"),
-    ("selfclean", "F. Gröger et al. Intrinsic self-supervision for data quality audits (SelfClean). NeurIPS 2024.", "https://arxiv.org/abs/2305.17048"),
-    ("panda", "Team PND. PANDA challenge 1st-place solution (code, including OOF-based label-noise removal). 2020.", "https://github.com/kentaroy47/Kaggle-PANDA-1st-place-solution"),
+    ("selfclean", "F. Gröger et al. Intrinsic self-supervision for data quality audits (SelfClean). NeurIPS 2024 Datasets and Benchmarks Track (App. L.1, Table 14: automatic-mode estimates).", "https://arxiv.org/abs/2305.17048"),
+    ("panda", "Team PND. PANDA challenge 1st-place solution write-up (OOF-based label-noise removal); code at github.com/kentaroy47/Kaggle-PANDA-1st-place-solution. 2020.", "https://www.kaggle.com/c/prostate-cancer-grade-assessment/discussion/169143"),
     ("hcd", "A. Jaiswal et al. Semi-supervised learning for cancer detection of lymph node metastases. CVPR Workshops 2019 (Kaggle PCam data; TTA inside a model ensemble).", "https://arxiv.org/abs/1906.09587"),
     ("ema", "D. Morales-Brotons, T. Vogels, H. Hendrikx. Exponential moving average of weights in deep learning: dynamics and benefits. TMLR 2024.", "https://arxiv.org/abs/2411.18704"),
-    ("tomar", "D. Tomar, A. Binder, A. Kleppe. Are nuclear masks all you need for improved out-of-domain generalisation? A closer look at cancer classification in histopathology. NeurIPS 2024 (Sec. 4.1: CAMELYON17 centres 0, 3 and 4 share one scanner).", "https://arxiv.org/abs/2411.09373"),
+    ("tomar", "D. Tomar, A. Binder, A. Kleppe. Are nuclear masks all you need for improved out-of-domain generalisation? A closer look at cancer classification in histopathology. NeurIPS 2024 (Sec. 4.1 states that CAMELYON17 centres 0, 3 and 4 share one scanner; the slide files disagree, Sec. 3).", "https://arxiv.org/abs/2411.09373"),
     ("peft", "Z. Mai et al. Lessons and insights from a unifying study of parameter-efficient fine-tuning (PEFT) in visual recognition. CVPR 2025.", "https://arxiv.org/abs/2409.16434"),
     ("rotinv", "M. Elphick, S. Turajlic, G. Yang. Are the latent representations of foundation models for pathology invariant to rotation? 2024.", "https://arxiv.org/abs/2412.11938"),
     ("seg2404", "J. Wang, Y. Cui, Y. Mao, N. Guan, C. J. Xue. Pre-processing matters: A segment search method for WSI classification. arXiv:2404.11161v1, 2024 (Sec. 2.1 names CAMELYON17 centres 0, 1, 4).", "https://arxiv.org/abs/2404.11161v1"),
@@ -66,7 +69,8 @@ REFS = [
     ("pcam", "B. S. Veeling. PatchCamelyon (PCam) dataset README: label rule, sampling and file checksums.", "https://github.com/basveeling/pcam"),
     ("c16readme", "CAMELYON16 data set README (lists test_049 as a duplicate slide removed from the data set).", "https://camelyon-dataset.s3.amazonaws.com/CAMELYON16/README.md"),
     ("fieldwelsh", "C. A. Field, A. H. Welsh. Bootstrapping clustered data. JRSS-B 69(3):369–390, 2007.", "https://doi.org/10.1111/j.1467-9868.2007.00593.x"),
-    ("hiboucard", "HistAI. Hibou-L model card and configuration (parameter count, 4 registers, SwiGLU).", "https://huggingface.co/histai/hibou-L"),
+    ("kagglehcd", "Kaggle. Histopathologic Cancer Detection, competition description: \"the original PCam dataset contains duplicate images due to its probabilistic sampling\". 2018.", "https://www.kaggle.com/c/histopathologic-cancer-detection"),
+    ("hiboucard", "HistAI. Hibou-L on Hugging Face: config.json (4 registers, SwiGLU) and released weights (303.7M parameters in the safetensors metadata; the card and paper state no count).", "https://huggingface.co/histai/hibou-L"),
 ]
 CITE = {k: i + 1 for i, (k, _, _) in enumerate(REFS)}
 
@@ -88,7 +92,8 @@ def build_paper() -> str | None:
     ctrl = {k: _j(f"arms/{k}.json") for k in ("control_shuffled_labels", "control_color_histogram", "control_majority")}
     pub, wilds, pool = _j("published_baselines.json"), _j("wilds_data.json"), _j("model_pool.json")
     steps = sorted((PATHS.results / "steps").glob("*.json")) if (PATHS.results / "steps").exists() else []
-    from pcam_hc.report_experiments import CONTROL_MODELS, _pt, frozen_changes, ladder_findings, ladder_rows, ref_label, review_findings, seed_offset
+    from pcam_hc.backbones import REGISTRY
+    from pcam_hc.report_experiments import CONTROL_MODELS, _pt, frozen_changes, ladder_findings, ladder_rows, ref_label, review_findings, seed_offset, wilds_scanner_facts
 
     lrows = ladder_rows()
     decided = [json.loads(p.read_text()) for p in sorted(steps, key=lambda p: p.stat().st_mtime)]
@@ -120,7 +125,7 @@ def build_paper() -> str | None:
       "We pre-registered a ladder of interventions to improve it, each transferred from neighbouring work: intermediate-layer and centre-region features, "
       "head choice, rotation/flip test-time augmentation, out-of-fold label cleaning, multi-model fusion, and LoRA fine-tuning with LP-FT, stain augmentation and weight-space averaging. "
       "Every step is selected on slide-grouped cross-validation, gated on validation, and the test split stays sealed until the ladder is frozen. "
-      f"We reproduce the eva Hibou-L probe exactly: validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} over {gate['n_seeds']} seeds, against the published {hib['val_ba']:.3f}. "
+      f"We reproduce the eva Hibou-L probe to the published precision (three decimals): validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} over {gate['n_seeds']} seeds, against the published {hib['val_ba']:.3f}. "
       f"Our native-transformers implementation matches Hibou's own code to a mean cosine of {parity['fp32_cpu']['mean_cosine']:.6f}. "
       f"Under the cross-validation protocol the original probe reaches {_ba(s0['oof']['seed_avg'])} out-of-fold BA. "
       f"Controls behave as expected: shuffled labels give {ctrl['control_shuffled_labels']['oof']['seed_avg']['ba']:.3f} and a colour-histogram classifier gives {ctrl['control_color_histogram']['oof']['seed_avg']['ba']:.3f}. "
@@ -131,7 +136,7 @@ def build_paper() -> str | None:
       + findings + (" The test split and WILDS remain sealed." if lrows else ""))
     a("")
     a("= Introduction")
-    a(f"Sentinel lymph-node metastasis detection is a labour-intensive step in breast-cancer staging {c('camelyon16')}. "
+    a(f"Assessing sentinel lymph nodes for metastases is part of breast-cancer staging, and it is tedious and time-consuming {c('camelyon16')}. "
       f"PCam {c('veeling', 'pcam')} recasts it as 327,680 patches of 96×96 px, labelled positive if the centre 32×32 px contains at least one tumour pixel. "
       f"Self-supervised pathology foundation models (FMs) trained with DINOv2 {c('dinov2')} now dominate PCam under frozen-probe protocols {c('eva', 'midnight')}. "
       f"Many adaptation techniques are each reported to help elsewhere: LoRA {c('lora', 'lee2024')}, LP-FT {c('lpft')}, WiSE-FT and model soups {c('wise', 'soups')}, "
@@ -148,11 +153,12 @@ def build_paper() -> str | None:
       f"The audit checks that no slide is shared between splits ({dv['shared_slides_train_test']} train–test, {dv['shared_slides_train_valid']} train–valid, {dv['shared_slides_valid_test']} valid–test), "
       "that the labels agree with the meta CSVs, and it counts exact pixel duplicates within and across splits (BLAKE2b hashes), with the slide coordinates of every cross-split copy.")
     a("== Model, access and licences")
-    a(f"Hibou-L is a ViT-L/14 with 4 registers {c('registers')} and a SwiGLU MLP block, with 304M parameters {c('hiboucard')}, pretrained with DINOv2 "
+    a(f"Hibou-L is a ViT-L/14 with 4 registers {c('registers')} and a SwiGLU MLP block, with about 304M parameters {c('hiboucard')}, pretrained with DINOv2 "
       f"on 1.2B patches from about 1.14M private slides {c('hibou')}. "
       "It ships custom code; we load its pinned weights into transformers' native `Dinov2WithRegistersModel` (no remote code) and test equivalence against kaiko-eva running the remote code. "
-      f"The candidate pool is every model whose Hugging Face licence the author accepted, frozen before any embedding: {sum(pool.values())} of {len(pool)} registry entries. "
-      "Derivatives of non-redistributable models (Virchow2, Phikon) are never published; only aggregate metrics are.")
+      f"The candidate pool is every registry model the author's Hugging Face account can load (gated models whose licence the author accepted, plus ungated ones), frozen before any embedding: {sum(pool.values())} of {len(pool)} registry entries, including the two control backbones"
+      + (f" (not accessible: {', '.join(REGISTRY[k].repo for k, v in pool.items() if not v)}). " if not all(pool.values()) else ". ")
+      + "Derivatives of non-redistributable models (Virchow2, Phikon) are never published; only aggregate metrics are.")
     a("== Features, heads and protocol")
     a("Patches are resized 96→224 px (bilinear), scaled and normalised with Hibou's eva mean and std. Embeddings are computed in bf16 and cached in fp16. "
       f"The *eva-exact* probe is `nn.Linear` with BCE loss, AdamW at lr {ep['lr']:g}, batch {ep['batch_size']}, at most {ep['max_steps']:,} steps, "
@@ -172,14 +178,14 @@ def build_paper() -> str | None:
       f"valid {dv['valid_within_split_duplicates']:,}, test {dv['test_within_split_duplicates']:,}; "
       + (f"{conflicts} groups have conflicting labels" if (conflicts := sum(dv[f'{s}_duplicate_groups_label_conflict'] for s in splits))
          else "no group has conflicting labels")
-      + f"), consistent with PCam's probabilistic sampling {c('pcam', 'hcd')}. "
+      + f"), consistent with PCam's probabilistic sampling {c('pcam', 'kagglehcd')}. "
       + (f"Only {multi} duplicate groups span two slides and can straddle CV folds; slide-grouped folds keep every other group inside one fold. " if multi else
          "No group spans two slides, so slide-grouped folds keep every copy inside one fold. ")
       + (f"Across splits, {dup['n']} test images are pixel-identical to train images. All of them come from `{dup['test_slide']}` and {dup['train_phrase']}, "
          f"{dup['coords_phrase']}. The official CAMELYON16 README lists `test_049` as a duplicate slide that was removed "
          f"from the data set {c('c16readme')}; PCam's test split still contains it ({dup['test_slide_n']:,} patches). With the test split still sealed, "
          "we added a sensitivity analysis that excludes this slide, through the deviations log of the pre-registration." if dup else ""))
-    a("== Exact reproduction of the published probe (H2)")
+    a("== Reproduction of the published probe (H2)")
     a(f"Against eva running Hibou's remote code on {parity['n']} validation patches, our fp32 embeddings agree to a mean cosine of {parity['fp32_cpu']['mean_cosine']:.6f} (max |Δ| {parity['fp32_cpu']['max_abs_diff']:.1e}). "
       f"In bf16 the mean cosine is {parity['bf16_gpu']['mean_cosine']:.4f}, but the minimum is {parity['bf16_gpu']['min_cosine']:.4f}: bf16 noticeably perturbs a few patches. "
       f"The eva-exact probe reaches validation BA {gate['valid_ba_seed_mean']:.4f} ± {gate['valid_ba_seed_sd']:.4f} ({gate['n_seeds']} seeds), against the published {hib['val_ba']:.3f}. "
@@ -216,13 +222,20 @@ def build_paper() -> str | None:
         a("== Camelyon17-WILDS preparation")
         a(f"The official WILDS download failed (expired TLS certificate), so we use a Hugging Face mirror (`wltjr1007/Camelyon17-WILDS`, revision `{MIRROR_REVISION[:7]}`). Its split sizes match the WILDS paper {c('wilds')}. "
           f"We fixed a subsample of ≤1,000 patches per slide ({sum(wilds['subsample_per_center'].values()):,} patches from {wilds['n_slides']} slides). "
-          f"PCam train slides grouped by the assumed Camelyon16 numbering (RUMC vs. UMCU) differ in colour (L1 {hc['pcam_assumed_hospital_split_l1']:.2f}) far more than a random split ({hc['pcam_random_slide_split_l1']:.2f}). "
+          f"PCam train slides grouped by the assumed Camelyon16 numbering (RUMC vs. UMCU) differ in colour (L1 {hc['pcam_assumed_hospital_split_l1']:.2f}) far more than a random split ({hc['pcam_random_slide_split_l1']:.2f})"
+          + ("" if "reference.csv" in hc["reference_rule"] else "; this run put one RUMC slide of the official CAMELYON16 reference list, `normal_144`, in the UMCU group (fixed in code)")
+          + ". "
           f"WILDS centre 2, the official WILDS *test* hospital, is closest to UMCU ({hc['l1_distance_to_pcam_hospital']['2']['UMCU']:.2f} vs. {hc['l1_distance_to_pcam_hospital']['2']['RUMC']:.2f}). "
           "It is therefore most likely UMCU, a Camelyon16 source hospital, and not out-of-distribution for PCam-trained models. "
           f"The planned primary OOD pool is centres 0, 1 and 4, read as CWZ, RST and LPON from {c('seg2404')}; the pre-registration only excludes RUMC and UMCU, "
           "and the mapping is an open issue in its deviations log. "
-          f"Scanner metadata contradict that reading: centres 0, 3 and 4 share one scanner {c('tomar')}, and RUMC, CWZ and RST slides were scanned on one 3DHistech scanner {c('camelyon')}, "
-          "which places RUMC, a Camelyon16 source hospital, among centres 0, 3 and 4. The pool is therefore re-decided and logged before WILDS is unsealed.")
+          + (f"The headers of the official CAMELYON17 slide files (node 0 of all {sf['n']} training patients) give centres {', '.join(sf['shared'][:-1])} and {sf['shared'][-1]} "
+             f"one pixel size ({sf['shared_um']:.4f} µm/px), centre 2 {sf['c2_lo']:.4f}–{sf['c2_hi']:.4f} µm/px and centre 4 a {sf['c4_maker']} scanner. "
+             f"RUMC's 3DHistech scanner, which also scanned the CWZ and RST slides, gives 0.243 µm/px, UMCU's Hamamatsu 0.226 µm/px, and LPON used a Philips scanner {c('camelyon', 'camelyon16')}. "
+             f"So centre 2 is UMCU (as the colour check found) and centre 4 is LPON; the statement that centres 0, 3 and 4 share one scanner {c('tomar')} does not hold; "
+             f"and RUMC, a Camelyon16 source hospital, is one of centres {', '.join(sf['shared'][:-1])} and {sf['shared'][-1]}, which no source we found resolves and the colour check does not separate. "
+             if (sf := wilds_scanner_facts()) else "")
+          + "The pool is therefore re-decided and logged before WILDS is unsealed.")
     a("")
     if lrows:
         a("== Improvement ladder")
@@ -234,7 +247,7 @@ def build_paper() -> str | None:
                    f"{100 * r['cmp']['oof']['delta_ba']:+.2f} [{100 * r['cmp']['oof']['ci_ba'][0]:+.2f}, {100 * r['cmp']['oof']['ci_ba'][1]:+.2f}]",
                    f"{r['cmp']['oof']['p_signflip']:.3g}", f"{100 * r['cmp']['valid']['delta_ba']:+.2f}"] for r in lrows]))
         a("")
-        a('#figure(image("../figures/ladder_deltas.png", width: 92%), caption: [Every trained ladder classifier vs. the original Hibou-L probe: paired Δ BA with 95% slide-bootstrap CIs (train OOF and validation).])')
+        a('#figure(image("../figures/ladder_deltas.png", width: 92%), caption: [Every trained ladder classifier: paired Δ BA with 95% slide-bootstrap CIs, on train OOF against the reference and patch set named in each row label (the original probe, except S3 D4 TTA against its no-TTA twin) and on validation against the original probe.])')
         for d in decided:
             a(f"- *{d['step']}*: best candidate `{d['winner']}`; OOF test passed {d.get('oof_test_passed')}, valid gate passed "
               f"{d.get('valid_gate_passed')} → *{'adopted' if d['adopted'] else 'rejected'}*.")
@@ -262,7 +275,7 @@ def build_paper() -> str | None:
       f"Hibou-L {c('hibou')} has the highest PCam test BA on the eva leaderboard ({hib['test_ba']:.3f}; rank {val_rank} on validation), ahead of models "
       f"trained on a larger cohort (Virchow2, 3.1M slides {c('virchow2')}) or a different one (Prov-GigaPath, 171k Providence slides {c('gigapath')}). "
       f"*Adapting FMs.* A benchmark of adaptation strategies reports LoRA above both linear probing and full fine-tuning for UNI on PCam {c('lee2024')}; "
-      f"LP-FT {c('lpft')} and weight-space interpolation {c('wise', 'soups')} were proposed to keep pretrained features robust under shift. "
+      f"LP-FT {c('lpft')} and weight-space interpolation or averaging {c('wise', 'soups')} improve fine-tuned models in and out of distribution. "
       f"*Data-centric fixes.* Out-of-fold label cleaning was part of the PANDA-winning solution {c('panda')}, SelfClean estimates PCam's label-error rate {c('selfclean')}, "
       f"TTA was part of strong ensembles on Kaggle's PCam data {c('hcd')}; rotation invariance varies widely across pathology FMs, and Hibou-L, trained with rotations and flips {c('hibou')}, was the most invariant by cosine distance {c('rotinv')}. "
       f"*Representations.* Multi-layer and attentive probes improve frozen natural-image ViTs on average, including on PCam {c('multilayer')}; "
@@ -283,7 +296,7 @@ def build_paper() -> str | None:
     a("*Why LoRA helped.* The H4 control targets the augmentation: a frozen head trained on the same patches with the same augmentation recipe is no better than the original, "
       "while LoRA is clearly better. This suggests that the gain comes from adapting the backbone's attention layers rather than from the augmentation, "
       "although the two arms also differ in optimiser and schedule, and the stain augmentation is strong (Limitations), which may handicap a frozen head scored on clean images more than LoRA. Shrinking the LoRA update (WiSE) lowered validation BA, more so the further it was shrunk; "
-      "WiSE-FT targets robustness under distribution shift, which only the sealed WILDS evaluation can test.")
+      f"WiSE-FT reported its largest gains under distribution shift and smaller ones in distribution (+1.6 pp on ImageNet) {c('wise')}; here even the in-distribution effect is negative, and the shift case can only be tested on the sealed WILDS pool.")
     a(f"*Strength of the evidence.* All results are on cross-validation and the {dv['valid_slides']}-slide validation split, with one seed per arm from S1 f on and one LoRA run. "
       "They are hedged findings until the sealed test split and the out-of-hospital WILDS pool are scored once.")
     a("")
@@ -308,12 +321,12 @@ def build_paper() -> str | None:
     a("- Hibou-L and most candidates were pretrained on private data; their exclusion of Camelyon cannot be verified.")
     a("- bf16 embeddings deviate from fp32 for a few patches.")
     a("- Validation is small, so the no-harm gate has low power.")
-    a("- The WILDS centre-to-hospital mapping is unresolved (one paper's naming vs. scanner metadata; the colour check separates only UMCU), and the WILDS data come from a community mirror.")
+    a("- The WILDS centre-to-hospital mapping is partly unresolved: slide metadata and colour identify centre 2 (UMCU) and centre 4 (LPON), but not which of centres 0, 1 and 3 is RUMC; the WILDS data come from a community mirror.")
     a("- Results so far are from cross-validation and validation only.")
     a("- From S1 f on, every arm uses one seed, and LoRA is a single run: seed variance of the ladder arms is unmeasured (sensitivity study postponed).")
     if so := seed_offset():
         a(f"- Seed-count confounder: the original's validation BA averages 5 seeds (per-seed SD {100 * so['valid_seed_sd']:.2f} pt), and the same recipe "
-          f"with seed 0 alone scores {pt(so['cmp'], 'valid')} on validation. One-seed linear-head arms are compared with that 5-seed average, so their "
+          f"with seed 0 alone scores {pt(so['cmp'], 'valid')} on validation. One-seed head arms are compared with that 5-seed average, so their "
           "Δ valid vs. the original includes a seed term of this size; no adoption decision depends on it.")
     lr = _j("arms/S2_logreg.json")
     if lr and set(lr["chosen_C_per_fold"]) == {min(map(float, lr["cv_ba_per_C"]))}:

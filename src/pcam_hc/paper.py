@@ -57,7 +57,7 @@ REFS = [
     ("wilds", "P. W. Koh et al. WILDS: A benchmark of in-the-wild distribution shifts. ICML 2021.", "https://arxiv.org/abs/2012.07421"),
     ("efron", "B. Efron. Better bootstrap confidence intervals. JASA 1987.", "https://doi.org/10.1080/01621459.1987.10478410"),
     ("holm", "S. Holm. A simple sequentially rejective multiple test procedure. Scand. J. Stat. 1979.", "https://www.jstor.org/stable/4615733"),
-    ("selfclean", "F. Gröger et al. Intrinsic self-supervision for data quality audits (SelfClean). NeurIPS 2024 Datasets and Benchmarks Track (App. L.1, Table 14: automatic-mode estimates).", "https://arxiv.org/abs/2305.17048"),
+    ("selfclean", "F. Gröger et al. Intrinsic self-supervision for data quality audits (SelfClean). NeurIPS 2024 Datasets and Benchmarks Track (arXiv v3, App. L.1, Table 16: automatic-mode estimates).", "https://arxiv.org/abs/2305.17048"),
     ("panda", "Team PND. PANDA challenge 1st-place solution write-up (OOF-based label-noise removal); code at github.com/kentaroy47/Kaggle-PANDA-1st-place-solution. 2020.", "https://www.kaggle.com/c/prostate-cancer-grade-assessment/discussion/169143"),
     ("hcd", "A. Jaiswal et al. Semi-supervised learning for cancer detection of lymph node metastases. CVPR Workshops 2019 (Kaggle PCam data; TTA inside a model ensemble).", "https://arxiv.org/abs/1906.09587"),
     ("ema", "D. Morales-Brotons, T. Vogels, H. Hendrikx. Exponential moving average of weights in deep learning: dynamics and benefits. TMLR 2024.", "https://arxiv.org/abs/2411.18704"),

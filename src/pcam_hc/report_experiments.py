@@ -16,7 +16,7 @@ from pcam_hc.wilds import MIRROR_REVISION
 EXP_DIR = PROJECT_ROOT / "reports" / "experiments"
 CAMELYON16_README = "https://camelyon-dataset.s3.amazonaws.com/CAMELYON16/README.md"  # lists test_049 as "Duplicate slide"
 # SelfClean's PCam label-error estimate (automatic mode, alpha 0.10, q 0.05): 589 of 327,680 images,
-# arXiv:2305.17048 App. L.1 Table 14. A cited literature constant, not a result of this study.
+# arXiv:2305.17048v3 App. L.1 Table 16. A cited literature constant, not a result of this study.
 SELFCLEAN_PCAM_LABEL_ERRORS, PCAM_SIZE = 589, 327_680
 SELFCLEAN_RATE = SELFCLEAN_PCAM_LABEL_ERRORS / PCAM_SIZE
 LITJENS = "https://academic.oup.com/gigascience/article/7/6/giy065/5026175"
@@ -488,7 +488,7 @@ def _later_learnings() -> list[str]:
         lines.append(f"- **S3b label cleaning removed {100 * min(fr):.1f}–{100 * max(fr):.1f}% of training patches per fold** "
                      f"({100 * a['removed_fraction_valid_refit']:.1f}% in the full refit). That is {min(fr) / SELFCLEAN_RATE:.0f}–"
                      f"{max(fr) / SELFCLEAN_RATE:.0f} times SelfClean's PCam label-error estimate ({SELFCLEAN_PCAM_LABEL_ERRORS} of "
-                     f"{PCAM_SIZE:,} images, {100 * SELFCLEAN_RATE:.1f}%; [arXiv:2305.17048](https://arxiv.org/abs/2305.17048), App. L.1 Table 14); "
+                     f"{PCAM_SIZE:,} images, {100 * SELFCLEAN_RATE:.1f}%; [arXiv:2305.17048](https://arxiv.org/abs/2305.17048), v3 App. L.1 Table 16); "
                      "if that estimate holds, most removed patches are hard but correctly labelled. "
                      f"Δ OOF {d(c, 'oof')} exceeds the pre-registered |Δ| ≤ 0.2 pt (prediction falsified). Δ valid "
                      f"{d(c, 'valid')} is indistinguishable from zero; the gate (point estimate ≥ 0, AUROC not lower) passed narrowly.")

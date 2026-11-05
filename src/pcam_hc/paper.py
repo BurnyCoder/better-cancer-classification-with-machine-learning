@@ -136,7 +136,7 @@ def build_paper() -> str | None:
       + findings + (" The test split and WILDS remain sealed." if lrows else ""))
     a("")
     a("= Introduction")
-    a(f"Assessing sentinel lymph nodes for metastases is part of breast-cancer staging, and it is tedious and time-consuming {c('camelyon16')}. "
+    a(f"Assessing sentinel lymph nodes for metastases is part of breast-cancer staging, and it is tedious and time-consuming {c('camelyon16', 'camelyon')}. "
       f"PCam {c('veeling', 'pcam')} recasts it as 327,680 patches of 96×96 px, labelled positive if the centre 32×32 px contains at least one tumour pixel. "
       f"Self-supervised pathology foundation models (FMs) trained with DINOv2 {c('dinov2')} now dominate PCam under frozen-probe protocols {c('eva', 'midnight')}. "
       f"Many adaptation techniques are each reported to help elsewhere: LoRA {c('lora', 'lee2024')}, LP-FT {c('lpft')}, WiSE-FT and model soups {c('wise', 'soups')}, "
